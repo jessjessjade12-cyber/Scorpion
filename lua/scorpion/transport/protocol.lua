@@ -1,0 +1,68 @@
+local Protocol = {}
+
+Protocol.Family = {
+  Raw = 255,
+  Connection = 1,
+  Account = 2,
+  Character = 3,
+  Login = 4,
+  GameData = 5,
+  Walk = 6,
+  Face = 7,
+  Chair = 8,
+  Emote = 9,
+  Attack = 11,
+  Item = 14,
+  Skill = 16,
+  Talk = 18,
+  Warp = 19,
+  Players = 22,
+  Avatar = 23,
+  Refresh = 25,
+  Mob = 26,
+  PlayerRange = 27,
+  NpcRange = 28,
+  Range = 29,
+  Paperdoll = 30,
+  Effect = 31,
+  Door = 34,
+  Message = 35,
+  Bank = 36,
+  Locker = 37,
+  Barber = 38,
+  Sit = 41,
+  Arena = 45,
+}
+
+Protocol.Action = {
+  Raw = 255,
+  Request = 1,
+  Accept = 2,
+  Reply = 3,
+  Remove = 4,
+  Agree = 5,
+  Create = 6,
+  Player = 8,
+  Take = 9,
+  Use = 10,
+  Open = 13,
+  Message = 15,
+  Spec = 16,
+  Special = 16,
+  Admin = 17,
+  Tell = 20,
+  Report = 21,
+  Announce = 22,
+  Drop = 24,
+  Ping = 240,
+  Pong = 241,
+}
+
+Protocol.LoginReply = {
+  UnknownUser = 1,
+  WrongPassword = 2,
+  OK = 3,
+  AlreadyLoggedIn = 5,
+}
+
+return Protocol
