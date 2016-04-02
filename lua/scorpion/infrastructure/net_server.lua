@@ -1,7 +1,6 @@
 local socket    = require("socket")
 local Packet    = require("scorpion.transport.packet")
 local Protocol  = require("scorpion.transport.protocol")
-local WebSocket = require("scorpion.transport.websocket")
 
 local Family = Protocol.Family
 local Action = Protocol.Action
@@ -30,8 +29,6 @@ function NetServer.new(deps)
     sleep_seconds      = (settings.net.tick_sleep_ms or 20) / 1000,
     next_arena_tick    = 0,
     tcp                = nil,
-    ws_tcp             = nil,
-    ws_port            = (settings.net or {}).websocket_port,
   }, NetServer)
 end
 
@@ -56,19 +53,6 @@ function NetServer:open()
   end
   tcp:settimeout(0)
   self.tcp = tcp
-
-  if self.ws_port then
-    local ws_tcp, ws_err = socket.bind(self.host, self.ws_port)
-    if not ws_tcp then
-      pcall(tcp.close, tcp)
-      self.tcp = nil
-      return nil, ("websocket bind failed: %s"):format(ws_err)
-    end
-    ws_tcp:settimeout(0)
-    self.ws_tcp = ws_tcp
-    self:log("info", "websocket listener ready", { host = self.host, port = self.ws_port })
-  end
-
   self.running = true
   return true
 end
@@ -93,11 +77,6 @@ function NetServer:shutdown(reason)
     self.tcp = nil
   end
 
-  if self.ws_tcp ~= nil then
-    pcall(self.ws_tcp.close, self.ws_tcp)
-    self.ws_tcp = nil
-  end
-
   self:log("info", "listener stopped", { reason = reason or "shutdown" })
 end
 
@@ -120,11 +99,6 @@ end
 
 function NetServer:send_packet(client, packet)
   local wire = self.codec.encode(packet, client.context, packet and packet.force_raw)
-
-  if client.context.ws_ready then
-    wire = WebSocket.encode_frame(wire)
-  end
-
   local index = 1
   while index <= #wire do
     local sent, err, partial = client.sock:send(wire, index)
@@ -224,11 +198,6 @@ function NetServer:handle_sequence(client, packet)
 end
 
 function NetServer:tick_ping(client, now)
-  -- Don't ping WS clients until the HTTP upgrade is complete
-  if client.context.ws and not client.context.ws_ready then
-    return true
-  end
-
   if now < (client.context.ping_due or 0) then
     return true
   end
@@ -283,75 +252,12 @@ function NetServer:process_buffer(client)
   return true
 end
 
--- Complete the WebSocket HTTP upgrade handshake.
-function NetServer:ws_do_handshake(client)
-  local response, rest = WebSocket.handshake(client.buffer)
-
-  if response == nil and rest == nil then
-    return true  -- incomplete request, keep buffering
-  end
-
-  if response == nil then
-    return nil, ("ws handshake failed: %s"):format(rest or "unknown")
-  end
-
-  local _, send_err = client.sock:send(response)
-  if send_err then
-    return nil, ("ws handshake send failed: %s"):format(send_err)
-  end
-
-  client.context.ws_ready = true
-  -- Keep any bytes that arrived after the HTTP headers
-  client.buffer    = rest or ""
-  client.ws_eo_buf = ""
-  self:log("info", "websocket upgraded", { address = client.context.address })
-  return true
-end
-
--- Strip WebSocket frames from client.buffer, accumulate EO payload in
--- client.ws_eo_buf, then run those bytes through the normal EO codec.
-function NetServer:ws_process(client)
-  while #client.buffer >= 2 do
-    local payload, rest = WebSocket.decode_frame(client.buffer)
-
-    if payload == nil then
-      if rest == "incomplete" then
-        break
-      end
-      return nil, ("ws frame error: %s"):format(rest or "unknown")
-    end
-
-    client.ws_eo_buf = client.ws_eo_buf .. payload
-    client.buffer    = rest
-  end
-
-  if #client.ws_eo_buf < 2 then
-    return true
-  end
-
-  -- Swap in the decoded EO bytes, run through the codec, then restore
-  local ws_remainder   = client.buffer
-  client.buffer        = client.ws_eo_buf
-  local ok, err        = self:process_buffer(client)
-  client.ws_eo_buf     = client.buffer  -- any partial EO packet leftover
-  client.buffer        = ws_remainder
-  return ok, err
-end
-
 function NetServer:read_client(client)
   local data, err, partial = client.sock:receive(8192)
   local chunk = data or partial
 
   if chunk and #chunk > 0 then
     client.buffer = client.buffer .. chunk
-
-    if client.context.ws then
-      if not client.context.ws_ready then
-        return self:ws_do_handshake(client)
-      end
-      return self:ws_process(client)
-    end
-
     return self:process_buffer(client)
   end
 
@@ -362,10 +268,9 @@ function NetServer:read_client(client)
   return true
 end
 
-local function make_client(sock, addr, connection_id, ping_due, ws)
+local function make_client(sock, addr, connection_id, ping_due)
   return {
     buffer   = "",
-    ws_eo_buf = ws and "" or nil,
     sock     = sock,
     context  = {
       address          = addr,
@@ -379,8 +284,6 @@ local function make_client(sock, addr, connection_id, ping_due, ws)
       sequence_count   = 0,
       sequence_last    = 0,
       sequence_start   = 0,
-      ws               = ws or false,
-      ws_ready         = false,
     },
   }
 end
@@ -394,22 +297,9 @@ function NetServer:accept_new()
     sock:settimeout(0)
     local ip, port = sock:getpeername()
     local addr = make_addr(ip, port)
-    self.clients[addr] = make_client(sock, addr, self.next_connection_id, now + self.ping_seconds, false)
+    self.clients[addr] = make_client(sock, addr, self.next_connection_id, now + self.ping_seconds)
     self:log("info", "client accepted", { address = addr, connection_id = self.next_connection_id })
     self.next_connection_id = self.next_connection_id + 1
-  end
-
-  -- WebSocket TCP (HTTP upgrade pending)
-  if self.ws_tcp then
-    local ws_sock = self.ws_tcp:accept()
-    if ws_sock then
-      ws_sock:settimeout(0)
-      local ip, port = ws_sock:getpeername()
-      local addr = make_addr(ip, port)
-      self.clients[addr] = make_client(ws_sock, addr, self.next_connection_id, now + self.ping_seconds, true)
-      self:log("info", "ws client accepted", { address = addr, connection_id = self.next_connection_id })
-      self.next_connection_id = self.next_connection_id + 1
-    end
   end
 end
 
