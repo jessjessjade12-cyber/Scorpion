@@ -57,6 +57,7 @@ All settings are in [lua/scorpion/infrastructure/settings.lua](lua/scorpion/infr
 |---|---|---|
 | `host` | `127.0.0.1` | Bind address |
 | `port` | `8081` | TCP port for EO clients |
+| `net.websocket_port` | `8079` | WebSocket port (browser clients) |
 | `net.ping_seconds` | `10` | Ping interval |
 
 Change `host` to `0.0.0.0` to accept connections from other machines.
@@ -162,6 +163,8 @@ Point your client at:
 Host: 127.0.0.1
 Port: 8081
 ```
+
+Browser/WebSocket clients can connect on port `8079`.
 
 ---
 

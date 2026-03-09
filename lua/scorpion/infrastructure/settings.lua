@@ -54,6 +54,7 @@ local defaults = {
     ping_seconds = 10,
     sequence_repeat_max = 2,
     tick_sleep_ms = 20,
+    websocket_port = 8079,
   },
   new_character = {
     spawn_direction = 0,
