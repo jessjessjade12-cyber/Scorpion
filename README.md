@@ -7,7 +7,6 @@ A dedicated **Endless Online arena server** written in Lua 5.1 with a Rust launc
 ## Requirements
 
 - **Lua 5.1** — [LuaForWindows](https://github.com/rjpcomputing/luaforwindows/releases) (includes LuaSocket and BitOp)
-- **Rust** (only needed if you want to rebuild the launcher from source)
 
 > Scorpion uses LuaSocket for networking and BitOp for bitwise operations in the EO encryption codec. Both are bundled with LuaForWindows.
 
@@ -15,35 +14,15 @@ A dedicated **Endless Online arena server** written in Lua 5.1 with a Rust launc
 
 ## Running the Server
 
-### Option 1 — Launcher executable
-
-```
-Scorpion.exe
-```
-
-The launcher automatically finds Lua 5.1 in the following locations (in order):
-
-1. `lua.exe` on your system `PATH`
-2. `C:\Program Files (x86)\Lua\5.1\lua.exe`
-
-### Option 2 — Run Lua directly
-
 ```bash
 lua.exe lua/main.lua
 ```
 
-Run from the project root directory.
-
----
-
-## Building the Launcher (optional)
+Run from the project root directory. If `lua.exe` is not on your PATH, use the full path:
 
 ```bash
-cd launcher
-cargo build --release
+"C:\Program Files (x86)\Lua\5.1\lua.exe" lua/main.lua
 ```
-
-The compiled binary will be at `launcher/target/release/Scorpion.exe`. Copy it to the project root.
 
 ---
 
@@ -185,8 +164,7 @@ Scorpion/
 ├── Data/
 │   ├── Maps/                   # .emf map files
 │   └── Pub/                    # .ecf / .eif / .enf / .esf pub files
-├── logs/                       # Log output (auto-created)
-└── Scorpion.exe                # Compiled launcher
+└── logs/                       # Log output (auto-created)
 ```
 
 ---

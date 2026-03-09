@@ -2,3 +2,4 @@ launcher/target/
 logs/
 *.log
 ARCHITECTURE-LUA.md
+*.exe
