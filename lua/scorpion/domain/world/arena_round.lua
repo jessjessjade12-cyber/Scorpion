@@ -149,6 +149,16 @@ function M.arena_eliminate(self, victim_id, killer_id, direction)
 
   local victim = self.sessions[victim_id]
   local killer = self.sessions[killer_id]
+  local victim_origin = nil
+  if victim then
+    victim_origin = {
+      direction = victim.direction,
+      map_id = victim.map_id,
+      x = victim.x,
+      y = victim.y,
+    }
+  end
+
   if victim then
     victim.arena_in = false
     self:arena_respawn(victim)
@@ -157,6 +167,27 @@ function M.arena_eliminate(self, victim_id, killer_id, direction)
   if killer ~= nil then
     killer.arena_kills = (killer.arena_kills or 0) + 1
   end
+
+  local arena_players = {}
+  local arena_player_ids = {}
+  for _, id in ipairs(self.arena_round.players) do
+    local session = self.sessions[id]
+    if session ~= nil and session.connected then
+      arena_player_ids[#arena_player_ids + 1] = id
+      arena_players[#arena_players + 1] = session
+    end
+  end
+
+  self:run_arena_script_hook("on_arena_eliminate", {
+    arena_player_ids = arena_player_ids,
+    arena_players = arena_players,
+    direction = direction,
+    killer = killer,
+    killer_id = killer_id,
+    victim = victim,
+    victim_id = victim_id,
+    victim_origin = victim_origin,
+  })
 
   local kept = {}
   for _, id in ipairs(self.arena_round.players) do

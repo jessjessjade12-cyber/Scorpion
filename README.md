@@ -105,3 +105,47 @@ Rule of thumb:
 - Add packet behavior in `families/`.
 - Add reusable helper logic in `support/`.
 - Keep `session_handlers.lua` and `arena_handlers.lua` as orchestration layers, not dump files.
+
+---
+
+## Arena Script Hooks
+
+You can customize arena elimination behavior with a Lua script:
+
+- Script file: `lua/scorpion/scripts/arena.lua`
+- Settings: `lua/scorpion/infrastructure/settings.lua` under `scripts.arena`
+- Hook exposed today: `on_arena_eliminate(api, ctx)`
+
+`ctx` includes:
+- `victim`, `killer` (session tables)
+- `victim_id`, `killer_id`, `direction`
+- `arena_players` (session list of current round participants)
+- `victim_origin` (`map_id`, `x`, `y`, `direction`)
+
+`api` includes:
+- `api.temporarily_disguise_as_npc(session, { npc_id?, seconds? })`
+- `api.temporarily_override_appearance(session, { seconds?, hair_style?, ... })`
+- `api.random_npc_id([list])`
+- `api.clear_disguise(session)`
+- `api.config()`
+- `api.log(level, message, fields)`
+
+Notes:
+- Character packets only expose player appearance fields (sex/hair/skin), not NPC sprite ids.
+- `npc_id` is used as a deterministic seed for a temporary disguise style.
+- Safe appearance limits are configurable in `scripts.arena.appearance_limits`.
+- You can force temporary bald mode for all arena participants with `scripts.arena.mass_bald_enabled` and `scripts.arena.mass_bald_seconds`.
+- Disguise apply/clear/expiry now pushes `Players.Agree` updates immediately so clients refresh appearance without waiting for movement.
+
+Example:
+
+```lua
+function M.on_arena_eliminate(api, ctx)
+  local victim = ctx.victim
+  if not victim then return end
+  api.temporarily_disguise_as_npc(victim, {
+    npc_id = api.random_npc_id(),
+    seconds = 3,
+  })
+end
+```

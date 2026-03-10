@@ -3,20 +3,62 @@ local clamp = util.clamp
 
 local M = {}
 
+local function active_disguise(session)
+  local disguise = session and session.script_disguise or nil
+  if not disguise then
+    return nil
+  end
+
+  local expires_at = tonumber(disguise.expires_at) or 0
+  if expires_at > 0 and os.time() >= expires_at then
+    session.script_disguise = nil
+    return nil
+  end
+
+  return disguise
+end
+
 function M.add_character_map_info(reply, session, character)
+  local disguise = active_disguise(session)
+  local display_name = (disguise and disguise.name) or character.name
+
+  local char_level = character.level
+  local char_sex = character.sex
+  local char_hair_style = character.hair_style
+  local char_hair_color = character.hair_color
+  local char_skin = character.race
+
+  if disguise then
+    if disguise.level ~= nil then
+      char_level = disguise.level
+    end
+    if disguise.sex ~= nil then
+      char_sex = disguise.sex
+    end
+    if disguise.hair_style ~= nil then
+      char_hair_style = disguise.hair_style
+    end
+    if disguise.hair_color ~= nil then
+      char_hair_color = disguise.hair_color
+    end
+    if disguise.skin ~= nil then
+      char_skin = disguise.skin
+    end
+  end
+
   local map_id = clamp(tonumber(session.map_id) or 0, 0, 64008)
   local x = clamp(tonumber(session.x) or 0, 0, 64008)
   local y = clamp(tonumber(session.y) or 0, 0, 64008)
   local direction = clamp(tonumber(session.direction) or 0, 0, 3)
-  local level = clamp(tonumber(character.level) or 0, 0, 252)
-  local gender = clamp(tonumber(character.sex) or 0, 0, 1)
-  local hair_style = clamp(tonumber(character.hair_style) or 1, 0, 252)
-  local hair_color = clamp(tonumber(character.hair_color) or 0, 0, 252)
-  local skin = clamp(tonumber(character.race) or 0, 0, 252)
+  local level = clamp(tonumber(char_level) or 0, 0, 252)
+  local gender = clamp(tonumber(char_sex) or 0, 0, 1)
+  local hair_style = clamp(tonumber(char_hair_style) or 1, 0, 252)
+  local hair_color = clamp(tonumber(char_hair_color) or 0, 0, 252)
+  local skin = clamp(tonumber(char_skin) or 0, 0, 252)
   local sit_state = clamp(tonumber(session.sit_state) or 0, 0, 2)
   local invisible = (session.invisible and 1) or 0
 
-  reply:add_break_string(character.name)
+  reply:add_break_string(display_name)
   reply:add_int2(session.id)
   reply:add_int2(map_id)
   reply:add_int2(x)

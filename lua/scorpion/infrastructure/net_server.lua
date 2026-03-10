@@ -425,6 +425,14 @@ function NetServer:run_forever()
           kills  = winner.arena_kills or 0,
         })
       end
+
+      local runner = self.server.world.arena_script_runner
+      if runner and runner.tick then
+        local ok_tick, tick_err = pcall(runner.tick, runner)
+        if not ok_tick then
+          self:log("warn", "arena script tick failed", { error = tostring(tick_err) })
+        end
+      end
     end
 
     -- Build the select read list: listener sockets + all client sockets

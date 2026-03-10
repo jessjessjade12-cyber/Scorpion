@@ -59,6 +59,17 @@ function World:configure_arena(settings)
   self.arena_ready = self:has_map(arena_map)
 end
 
+function World:attach_arena_script_runner(runner)
+  self.arena_script_runner = runner
+end
+
+function World:run_arena_script_hook(hook_name, context)
+  if not self.arena_script_runner then
+    return
+  end
+  self.arena_script_runner:run(hook_name, context)
+end
+
 function World:push_pending(address, packet)
   self.pending_sends[#self.pending_sends + 1] = { address = address, packet = packet }
 end
