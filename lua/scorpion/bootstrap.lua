@@ -1,5 +1,6 @@
 local AccountsMemory = require("scorpion.infrastructure.accounts_memory")
 local AssetLoader = require("scorpion.infrastructure.asset_loader")
+local ArenaScriptRunner = require("scorpion.application.services.arena_script_runner")
 local Codec = require("scorpion.transport.codec")
 local Logger = require("scorpion.infrastructure.logger")
 local Server = require("scorpion.application.server")
@@ -20,6 +21,12 @@ function Bootstrap.build()
 
   world:attach_assets(assets)
   world:configure_arena(settings)
+  world:attach_arena_script_runner(ArenaScriptRunner.new({
+    accounts = accounts,
+    logger = logger,
+    settings = settings,
+    world = world,
+  }))
 
   local router = Router.new()
   local server = Server.new({

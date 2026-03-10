@@ -59,8 +59,9 @@ function Runtime:run()
   end
 
   local state = self.server:snapshot()
-  print(("  maps    %d loaded  |  arena map %d  |  ready %s"):format(
+  print(("  maps    %d loaded  |  shops %d loaded  |  arena map %d  |  ready %s"):format(
     state.maps,
+    state.shops or 0,
     settings.arena.map or 0,
     tostring(state.arena_ready)
   ))
@@ -82,6 +83,7 @@ function Runtime:run()
       host      = settings.host,
       port      = settings.port,
       maps      = state.maps,
+      shops     = state.shops or 0,
       arena_map = settings.arena.map or 0,
     })
   end

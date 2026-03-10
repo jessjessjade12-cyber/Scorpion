@@ -56,11 +56,31 @@ local defaults = {
     tick_sleep_ms = 20,
     websocket_port = 8079,
   },
+  scripts = {
+    arena = {
+      enabled = true,
+      path = "lua/scorpion/scripts/arena.lua",
+      loser_duration_seconds = 60,
+      winner_gold_reward = 500,
+      loser_gold_penalty = 100,
+      -- Character disguise values stay within these limits by default.
+      appearance_limits = {
+        hair_style_max = 20,
+        hair_color_max = 9,
+        skin_max = 4,
+      },
+      mass_bald_enabled = false,
+      mass_bald_seconds = 20,
+      -- NPC ids are used as a deterministic seed for disguise style.
+      loser_npc_ids = { 17, 28, 44, 63, 88, 101, 120, 146, 177, 203 },
+    },
+  },
   new_character = {
     spawn_direction = 0,
     spawn_map = 46,
     spawn_x = 12,
     spawn_y = 24,
+    start_gold = 1000,
   },
   port = 8081,
 }

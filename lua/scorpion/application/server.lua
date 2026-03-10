@@ -1,3 +1,5 @@
+local ServerBoot = require("scorpion.application.services.server_boot")
+
 local Server = {}
 Server.__index = Server
 
@@ -10,25 +12,12 @@ function Server.new(deps)
 end
 
 function Server:boot()
-  local spawn = (self.settings.new_character or {}).spawn_map or 5
-
-  if self.settings.arena and self.settings.arena.only then
-    if not self.world:has_map(spawn) then
-      self.world.arena_ready = false
-      return nil, ("arena map %d missing"):format(spawn)
-    end
-
-    if self.settings.arena.enforce_pub then
-      local p = self.world.pub.client or {}
-      local missing = (not p.ecf) or (not p.eif) or (not p.enf) or (not p.esf)
-      if missing then
-        return nil, "required pub files missing (ECF/EIF/ENF/ESF)"
-      end
-    end
+  local ok, err = ServerBoot.validate(self.settings, self.world)
+  self.world.arena_ready = (ok == true)
+  if not ok then
+    return nil, err
   end
-
-  self.world.arena_ready = true
-  return true
+  return ok
 end
 
 function Server:dispatch(packet, context)

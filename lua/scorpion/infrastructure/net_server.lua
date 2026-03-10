@@ -104,6 +104,17 @@ end
 function NetServer:close_client(client, reason)
   local session = self.server.world:find_session_by_address(client.context.address)
   if session then
+    local runner = self.server.world.arena_script_runner
+    if runner and runner.clear_session_proxy then
+      local ok_clear, clear_err = pcall(runner.clear_session_proxy, runner, session, "disconnect")
+      if not ok_clear then
+        self:log("warn", "arena script proxy clear failed", {
+          address = client.context.address,
+          error = tostring(clear_err),
+          session_id = session.id or 0,
+        })
+      end
+    end
     session.connected = false
     self.server.world:remove_session(session.id)
   end
@@ -424,6 +435,14 @@ function NetServer:run_forever()
           winner = winner.account or "unknown",
           kills  = winner.arena_kills or 0,
         })
+      end
+
+      local runner = self.server.world.arena_script_runner
+      if runner and runner.tick then
+        local ok_tick, tick_err = pcall(runner.tick, runner)
+        if not ok_tick then
+          self:log("warn", "arena script tick failed", { error = tostring(tick_err) })
+        end
       end
     end
 

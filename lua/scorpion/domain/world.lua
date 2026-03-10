@@ -1,9 +1,9 @@
-local Packet = require("scorpion.transport.packet")
-local Protocol = require("scorpion.transport.protocol")
-local Session = require("scorpion.domain.session")
-
-local Family = Protocol.Family
-local Action = Protocol.Action
+local ArenaRound = require("scorpion.domain.world.arena_round")
+local RuntimeNpcs = require("scorpion.domain.world.runtime_npcs")
+local Sessions = require("scorpion.domain.world.sessions")
+local Shops = require("scorpion.domain.world.shops")
+local Visibility = require("scorpion.domain.world.visibility")
+local Warp = require("scorpion.domain.world.warp")
 
 local World = {}
 World.__index = World
@@ -14,34 +14,6 @@ local function count(map)
     total = total + 1
   end
   return total
-end
-
-local function contains(list, value)
-  for _, entry in ipairs(list) do
-    if entry == value then
-      return true
-    end
-  end
-  return false
-end
-
-local function session_name(session)
-  if not session then
-    return "unknown"
-  end
-  return session.character or session.account or ("player" .. tostring(session.id or 0))
-end
-
-local function get_distance(a, b)
-  return math.abs((a.x or 0) - (b.x or 0)) + math.abs((a.y or 0) - (b.y or 0))
-end
-
-local function in_directional_range(observer, other, near_limit, far_limit)
-  local distance = get_distance(observer, other)
-  if (observer.x or 0) >= (other.x or 0) or (observer.y or 0) >= (other.y or 0) then
-    return distance <= near_limit
-  end
-  return distance <= far_limit
 end
 
 function World.new()
@@ -66,6 +38,12 @@ function World.new()
       client = {},
       server = {},
     },
+    runtime_npc_owners = {},
+    runtime_npcs = {},
+    shop_db = {
+      shops = {},
+      by_behavior_id = {},
+    },
     next_session_id = 1,
     pending_sends = {},
   }, World)
@@ -74,6 +52,7 @@ end
 function World:attach_assets(assets)
   self.maps = assets.maps or {}
   self.pub = assets.pub or { client = {}, server = {} }
+  self:attach_shop_db(assets.shop_db)
 end
 
 function World:configure_arena(settings)
@@ -89,12 +68,15 @@ function World:configure_arena(settings)
   self.arena_ready = self:has_map(arena_map)
 end
 
-function World:add_session(session)
-  self.sessions[session.id] = session
+function World:attach_arena_script_runner(runner)
+  self.arena_script_runner = runner
 end
 
-function World:remove_session(session_id)
-  self.sessions[session_id] = nil
+function World:run_arena_script_hook(hook_name, context)
+  if not self.arena_script_runner then
+    return
+  end
+  self.arena_script_runner:run(hook_name, context)
 end
 
 function World:push_pending(address, packet)
@@ -107,406 +89,50 @@ function World:flush_pending()
   return q
 end
 
--- Broadcast visibility range.
-function World:in_range(s1, s2)
-  if s1.map_id ~= s2.map_id then
-    return false
-  end
-  return in_directional_range(s1, s2, 12, 15)
-end
+-- Session lifecycle and lookup.
+World.add_session = Sessions.add_session
+World.remove_session = Sessions.remove_session
+World.find_session_by_account = Sessions.find_session_by_account
+World.find_session_by_address = Sessions.find_session_by_address
+World.create_session = Sessions.create_session
 
--- Client entity visibility range.
-function World:in_client_range(s1, s2)
-  if s1.map_id ~= s2.map_id then
-    return false
-  end
-  return in_directional_range(s1, s2, 11, 14)
-end
+-- Visibility and broadcast behavior.
+World.in_range = Visibility.in_range
+World.in_client_range = Visibility.in_client_range
+World.broadcast_near = Visibility.broadcast_near
+World.broadcast_map = Visibility.broadcast_map
+World.broadcast_remove_from = Visibility.broadcast_remove_from
 
--- Queue a packet to all connected sessions near from_session (excluding sender)
-function World:broadcast_near(from_session, packet)
-  for _, session in pairs(self.sessions) do
-    if session.id ~= from_session.id and session.connected and self:in_range(from_session, session) then
-      self:push_pending(session.address, packet)
-    end
-  end
-end
+-- Shop database behavior.
+World.attach_shop_db = Shops.attach_shop_db
+World.find_shop_by_behavior_id = Shops.find_shop_by_behavior_id
+World.list_shops = Shops.list_shops
+World.shop_count = Shops.shop_count
 
--- Queue a packet to all connected sessions on a map.
-function World:broadcast_map(map_id, packet)
-  for _, session in pairs(self.sessions) do
-    if session.connected and session.map_id == map_id then
-      self:push_pending(session.address, packet)
-    end
-  end
-end
+-- Runtime NPC proxy behavior.
+World.list_map_npcs = RuntimeNpcs.list_map_npcs
+World.get_runtime_npc_for_owner = RuntimeNpcs.get_runtime_npc_for_owner
+World.upsert_runtime_npc_for_owner = RuntimeNpcs.upsert_runtime_npc_for_owner
+World.remove_runtime_npc_for_owner = RuntimeNpcs.remove_runtime_npc_for_owner
 
--- Queue Avatar.Remove to sessions near an origin position (excluding player_id).
-function World:broadcast_remove_from(origin, player_id, warp_effect)
-  if not origin or not player_id then
-    return
-  end
+-- Map and warp behavior.
+World.has_map = Warp.has_map
+World.get_map_meta = Warp.get_map_meta
+World.get_map_relog = Warp.get_map_relog
+World.arena_spawn_point = Warp.arena_spawn_point
+World.request_local_warp = Warp.request_local_warp
+World.arena_respawn = Warp.arena_respawn
 
-  local remove = Packet.new(Family.Avatar, Action.Remove)
-  remove:add_int2(player_id)
-  if warp_effect ~= nil then
-    remove:add_int1(warp_effect)
-  end
-
-  for _, session in pairs(self.sessions) do
-    if session.connected and session.id ~= player_id and self:in_range(origin, session) then
-      self:push_pending(session.address, remove)
-    end
-  end
-end
-
-function World:find_session_by_account(account_name)
-  for _, session in pairs(self.sessions) do
-    if session.account == account_name and session.connected then
-      return session
-    end
-  end
-
-  return nil
-end
-
-function World:find_session_by_address(address)
-  for _, session in pairs(self.sessions) do
-    if session.address == address and session.connected then
-      return session
-    end
-  end
-
-  return nil
-end
-
-function World:has_map(map_id)
-  return self.maps[map_id] ~= nil
-end
-
-function World:get_map_meta(map_id)
-  local map = self.maps[map_id]
-  if map == nil then
-    return nil
-  end
-  return map.meta
-end
-
-function World:get_map_relog(map_id)
-  local meta = self:get_map_meta(map_id)
-  if not meta then
-    return nil
-  end
-
-  local x = tonumber(meta.relog_x) or 0
-  local y = tonumber(meta.relog_y) or 0
-  if x <= 0 or y <= 0 then
-    return nil
-  end
-
-  return { x = x, y = y }
-end
-
-function World:arena_spawn_point(x, y)
-  for _, spawn in ipairs((self.arena and self.arena.spawns) or {}) do
-    if spawn.from and spawn.from.x == x and spawn.from.y == y then
-      return spawn.to
-    end
-  end
-
-  return nil
-end
-
-function World:request_local_warp(session, map_id, x, y, direction)
-  if not session or not session.connected then
-    return false
-  end
-
-  local target_map = tonumber(map_id) or 0
-  local target_x = tonumber(x) or 0
-  local target_y = tonumber(y) or 0
-  local target_direction = tonumber(direction) or session.direction or 0
-  if target_direction < 0 or target_direction > 3 then
-    target_direction = 0
-  end
-  local session_id = math.random(10, 64008)
-
-  session.pending_warp = {
-    map_id = target_map,
-    x = target_x,
-    y = target_y,
-    direction = target_direction,
-    session_id = session_id,
-    warp_type = 1, -- Local
-  }
-
-  local packet = Packet.new(Family.Warp, Action.Request)
-  packet:add_int1(1) -- WarpType.Local
-  packet:add_int2(target_map)
-  packet:add_int2(session_id)
-  self:push_pending(session.address, packet)
-  return true
-end
-
-function World:arena_respawn(session)
-  local target_map = session.map_id
-  local target_x = session.x
-  local target_y = session.y
-  local target_direction = 0
-
-  local relog = self:get_map_relog(session.map_id)
-  if relog then
-    target_x = relog.x
-    target_y = relog.y
-  else
-    -- Fallback to configured spawn if EMF relog is unavailable.
-    local spawn = self.arena_spawn or {}
-    if spawn.map and spawn.map > 0 then
-      target_map = spawn.map
-    end
-    if spawn.x and spawn.x >= 0 then
-      target_x = spawn.x
-    end
-    if spawn.y and spawn.y >= 0 then
-      target_y = spawn.y
-    end
-    target_direction = spawn.direction or 0
-  end
-
-  -- In arena flow (same-map ejection), notify victim via local warp.
-  if target_map == session.map_id then
-    local warped = self:request_local_warp(
-      session,
-      target_map,
-      target_x,
-      target_y,
-      target_direction
-    )
-    if warped then
-      return
-    end
-  end
-
-  -- Fallback if warp request could not be queued.
-  session.map_id = target_map
-  session.x = target_x
-  session.y = target_y
-  session.direction = target_direction
-end
-
-function World:send_arena_full()
-  local packet = Packet.new(Family.Arena, Action.Drop)
-  packet:add_string("N")
-  self:broadcast_map(self.arena.map, packet)
-end
-
-function World:send_arena_launch(players_count)
-  local packet = Packet.new(Family.Arena, Action.Use)
-  packet:add_int1(players_count)
-  self:broadcast_map(self.arena.map, packet)
-end
-
-function World:send_arena_spec(killer_session, victim_session, direction)
-  local packet = Packet.new(Family.Arena, Action.Spec)
-  packet:add_int2(killer_session.id)
-  packet:add_byte(255)
-  packet:add_int1(direction or killer_session.direction or 0)
-  packet:add_byte(255)
-  packet:add_int4(killer_session.arena_kills or 0)
-  packet:add_byte(255)
-  packet:add_string(session_name(killer_session))
-  packet:add_byte(255)
-  packet:add_string(session_name(victim_session))
-  self:broadcast_map(self.arena.map, packet)
-end
-
-function World:send_arena_accept(winner_session, victim_session)
-  local winner_name = session_name(winner_session)
-  local packet = Packet.new(Family.Arena, Action.Accept)
-  packet:add_string(winner_name)
-  packet:add_byte(255)
-  packet:add_int4((winner_session and winner_session.arena_kills) or 0)
-  packet:add_byte(255)
-  packet:add_string(winner_name)
-  packet:add_byte(255)
-  packet:add_string(session_name(victim_session))
-  self:broadcast_map(self.arena.map, packet)
-end
-
-function World:arena_queue_candidates()
-  local candidates = {}
-
-  for _, session in pairs(self.sessions) do
-    if session.connected and not session.arena_in and session.map_id == self.arena.map then
-      local to = self:arena_spawn_point(session.x, session.y)
-      if to then
-        candidates[#candidates + 1] = { session = session, to = to }
-      end
-    end
-  end
-
-  table.sort(candidates, function(a, b)
-    return a.session.id < b.session.id
-  end)
-
-  return candidates
-end
-
-function World:start_arena_round()
-  if not self.arena_ready then
-    return false
-  end
-
-  local queued = self:arena_queue_candidates()
-  if #queued == 0 then
-    return false
-  end
-
-  local active_count = #self.arena_round.players
-  local max_players = math.max(1, self.arena.block or 4)
-  if active_count >= max_players then
-    self:send_arena_full()
-    return false
-  end
-
-  if active_count == 0 and #queued == 1 and not self.arena.allow_single_player then
-    return false
-  end
-
-  local slots = math.max(0, max_players - active_count)
-  local picked_count = math.min(#queued, slots)
-  if picked_count <= 0 then
-    return false
-  end
-
-  self:send_arena_launch(picked_count)
-
-  for i = 1, picked_count do
-    local entry = queued[i]
-    local session = entry.session
-
-    session.arena_in = true
-    session.arena_kills = 0
-
-    local warped = self:request_local_warp(
-      session,
-      session.map_id,
-      entry.to.x,
-      entry.to.y,
-      session.direction
-    )
-    if not warped then
-      session.x = entry.to.x
-      session.y = entry.to.y
-    end
-
-    if not contains(self.arena_round.players, session.id) then
-      self.arena_round.players[#self.arena_round.players + 1] = session.id
-    end
-  end
-
-  self.arena_round.active = #self.arena_round.players > 0
-  self.arena_round.ticks = 0
-  return self.arena_round.active
-end
-
-function World:is_arena_session(session_id)
-  return contains(self.arena_round.players, session_id)
-end
-
-function World:arena_eliminate(victim_id, killer_id, direction)
-  if not contains(self.arena_round.players, victim_id) then
-    return nil
-  end
-
-  local victim = self.sessions[victim_id]
-  local killer = self.sessions[killer_id]
-  if victim then
-    victim.arena_in = false
-    self:arena_respawn(victim)
-  end
-
-  if killer ~= nil then
-    killer.arena_kills = (killer.arena_kills or 0) + 1
-  end
-
-  local kept = {}
-  for _, id in ipairs(self.arena_round.players) do
-    local session = self.sessions[id]
-    if id ~= victim_id and session ~= nil and session.connected then
-      kept[#kept + 1] = id
-    end
-  end
-  self.arena_round.players = kept
-  self.arena_round.active = #kept > 0
-
-  if #kept == 0 then
-    self.arena_round.ticks = 0
-    return nil
-  end
-
-  if #kept == 1 then
-    local winner = self.sessions[kept[1]]
-    if winner ~= nil and victim ~= nil then
-      self:send_arena_accept(winner, victim)
-    end
-
-    -- End of round: eject the winner as well so both players leave arena combat.
-    if winner ~= nil then
-      winner.arena_in = false
-      self:arena_respawn(winner)
-      winner.arena_kills = 0
-    end
-
-    self.arena_round.players = {}
-    self.arena_round.active = false
-    self.arena_round.ticks = 0
-    self.arena_round.winner = winner
-    return winner
-  end
-
-  if killer ~= nil and victim ~= nil then
-    self:send_arena_spec(killer, victim, direction)
-  end
-
-  return nil
-end
-
-function World:tick_arena()
-  self.arena_round.ticks = self.arena_round.ticks + 1
-
-  local online = {}
-  for _, id in ipairs(self.arena_round.players) do
-    local session = self.sessions[id]
-    if session ~= nil and session.connected and session.map_id == self.arena.map then
-      online[#online + 1] = id
-    elseif session ~= nil then
-      session.arena_in = false
-    end
-  end
-
-  self.arena_round.players = online
-  self.arena_round.active = #online > 0
-
-  local rate = tonumber(self.arena.rate) or 0
-  if rate > 0 and (self.arena_round.ticks % rate) == 0 then
-    self:start_arena_round()
-  end
-
-  local winner = self.arena_round.winner
-  self.arena_round.winner = nil
-  return winner
-end
-
-function World:create_session(address, account_name)
-  local session = Session.new(self.next_session_id, address)
-  session.account = account_name
-
-  self.next_session_id = self.next_session_id + 1
-  self:add_session(session)
-
-  return session
-end
+-- Arena round lifecycle.
+World.send_arena_full = ArenaRound.send_arena_full
+World.send_arena_launch = ArenaRound.send_arena_launch
+World.send_arena_spec = ArenaRound.send_arena_spec
+World.send_arena_accept = ArenaRound.send_arena_accept
+World.arena_queue_candidates = ArenaRound.arena_queue_candidates
+World.start_arena_round = ArenaRound.start_arena_round
+World.is_arena_session = ArenaRound.is_arena_session
+World.arena_eliminate = ArenaRound.arena_eliminate
+World.tick_arena = ArenaRound.tick_arena
 
 function World:snapshot()
   return {
@@ -517,6 +143,7 @@ function World:snapshot()
     maps = count(self.maps),
     pub_client = count(self.pub.client or {}),
     pub_server = count(self.pub.server or {}),
+    shops = self:shop_count(),
   }
 end
 
