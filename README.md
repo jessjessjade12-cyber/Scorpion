@@ -12,17 +12,23 @@ A dedicated **Endless Online arena server** written in Lua 5.1 with a Rust launc
 
 ---
 
+## Quick Start
+
+Run the install script from the project root — it installs Lua 5.1 via Chocolatey if needed, then starts the server:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File install.ps1
+```
+
 ## Running the Server
 
-```bash
-lua.exe lua/main.lua
+Once Lua is installed:
+
+```powershell
+& "C:\Program Files (x86)\Lua\5.1\lua.exe" lua/main.lua
 ```
 
-Run from the project root directory. If `lua.exe` is not on your PATH, use the full path:
-
-```bash
-"C:\Program Files (x86)\Lua\5.1\lua.exe" lua/main.lua
-```
+Run from the project root directory.
 
 ---
 
