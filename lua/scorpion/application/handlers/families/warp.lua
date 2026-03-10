@@ -18,6 +18,7 @@ function M.handle(self, packet, context)
     local pending = session.pending_warp
 
     if pending ~= nil then
+      local runner = self.world.arena_script_runner
       if warp_session_id ~= pending.session_id then
         return nil, "invalid warp session"
       end
@@ -39,18 +40,22 @@ function M.handle(self, packet, context)
       session.y = pending.y
       session.direction = pending.direction or session.direction
       session.pending_warp = nil
+      session.shop_context = nil
 
       local self_character = self.accounts:get_character(session.account, session.character_id or 0)
-      if self_character then
+      if session.script_npc_proxy_enabled == true and runner and runner.sync_npc_proxy then
+        runner:sync_npc_proxy(session, old_position)
+      elseif self_character then
         local appear = Packet.new(Family.Players, Action.Agree)
         self:add_nearby_info(appear, { { session = session, character = self_character } })
         self.world:broadcast_near(session, appear)
       end
 
       local nearby = self:get_nearby_sessions(session)
+      local nearby_npcs = self:get_nearby_npcs(session)
       local reply = Packet.new(Family.Warp, Action.Agree)
       reply:add_int1(1)
-      self:add_nearby_info(reply, nearby)
+      self:add_nearby_info(reply, nearby, nearby_npcs)
       return reply
     end
   end

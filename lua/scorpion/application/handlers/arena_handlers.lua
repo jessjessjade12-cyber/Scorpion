@@ -55,14 +55,20 @@ function ArenaHandlers:handle_walk(packet, session)
 
   local direction = ArenaSupport.read_walk_direction(packet)
   local previous = ArenaSupport.apply_step(session, direction)
+  local runner = self.world.arena_script_runner
 
-  -- Broadcast Walk.Player to all nearby players on the same map
-  local broadcast = ArenaSupport.walk_player_packet(session)
-  self.world:broadcast_near(session, broadcast)
+  if session.script_npc_proxy_enabled == true and runner and runner.sync_npc_proxy then
+    runner:sync_npc_proxy(session, previous)
+  else
+    -- Broadcast Walk.Player to all nearby players on the same map
+    local broadcast = ArenaSupport.walk_player_packet(session)
+    self.world:broadcast_near(session, broadcast)
+  end
 
   -- Walk.Reply to the mover: include newly-visible players.
   local visible_player_ids = ArenaSupport.newly_visible_player_ids(self.world, session, previous)
-  return ArenaSupport.walk_reply_packet(visible_player_ids)
+  local visible_npc_indexes = ArenaSupport.newly_visible_npc_indexes(self.world, session, previous)
+  return ArenaSupport.walk_reply_packet(visible_player_ids, visible_npc_indexes)
 end
 
 function ArenaHandlers:handle_attack(packet, session)
@@ -72,8 +78,13 @@ function ArenaHandlers:handle_attack(packet, session)
 
   session.direction = ArenaSupport.read_attack_direction(packet)
 
-  local broadcast = ArenaSupport.attack_player_packet(session)
-  self.world:broadcast_near(session, broadcast)
+  local runner = self.world.arena_script_runner
+  if session.script_npc_proxy_enabled == true and runner and runner.sync_npc_proxy then
+    runner:sync_npc_proxy(session)
+  else
+    local broadcast = ArenaSupport.attack_player_packet(session)
+    self.world:broadcast_near(session, broadcast)
+  end
 
   if self.world:is_arena_session(session.id) then
     local victim_id = self:get_attack_target_player_id(session, session.direction)

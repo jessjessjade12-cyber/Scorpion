@@ -37,7 +37,8 @@ end
 -- Queue a packet to all connected sessions near from_session (excluding sender).
 function M.broadcast_near(self, from_session, packet)
   for _, session in pairs(self.sessions) do
-    if session.id ~= from_session.id and session.connected and self:in_range(from_session, session) then
+    -- Range must be evaluated from the receiver perspective.
+    if session.id ~= from_session.id and session.connected and self:in_range(session, from_session) then
       self:push_pending(session.address, packet)
     end
   end
@@ -65,7 +66,7 @@ function M.broadcast_remove_from(self, origin, player_id, warp_effect)
   end
 
   for _, session in pairs(self.sessions) do
-    if session.connected and session.id ~= player_id and self:in_range(origin, session) then
+    if session.connected and session.id ~= player_id and self:in_range(session, origin) then
       self:push_pending(session.address, remove)
     end
   end

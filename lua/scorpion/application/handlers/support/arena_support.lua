@@ -91,6 +91,7 @@ function M.newly_visible_player_ids(world, session, previous)
       and other.connected
       and (other.character_id and other.character_id > 0)
       and other.map_id == session.map_id
+      and other.invisible ~= true
       and world:in_client_range(session, other)
       and not world:in_client_range(previous, other)
     then
@@ -99,6 +100,41 @@ function M.newly_visible_player_ids(world, session, previous)
   end
   table.sort(visible_player_ids)
   return visible_player_ids
+end
+
+function M.newly_visible_npc_indexes(world, session, previous)
+  local visible_npc_indexes = {}
+  local session_id = tonumber(session and session.id) or 0
+  local map_npcs = {}
+  if world.list_map_npcs then
+    map_npcs = world:list_map_npcs(session.map_id) or {}
+  else
+    local map_meta = world:get_map_meta(session.map_id)
+    map_npcs = (map_meta and map_meta.npcs) or {}
+  end
+
+  for _, npc in ipairs(map_npcs) do
+    local owner_session_id = tonumber(npc and npc.owner_session_id) or 0
+    if session_id <= 0 or owner_session_id ~= session_id then
+      local coords = npc.coords or {}
+      local x = tonumber(coords.x) or tonumber(npc.x) or 0
+      local y = tonumber(coords.y) or tonumber(npc.y) or 0
+      local point = {
+        map_id = session.map_id,
+        x = x,
+        y = y,
+      }
+      if world:in_client_range(session, point) and not world:in_client_range(previous, point) then
+        local npc_index = clamp(tonumber(npc.index) or 0, 0, 252)
+        if npc_index > 0 then
+          visible_npc_indexes[#visible_npc_indexes + 1] = npc_index
+        end
+      end
+    end
+  end
+
+  table.sort(visible_npc_indexes)
+  return visible_npc_indexes
 end
 
 function M.next_coords(x, y, direction, width, height)
@@ -193,12 +229,15 @@ function M.walk_player_packet(session)
   return packet
 end
 
-function M.walk_reply_packet(visible_player_ids)
+function M.walk_reply_packet(visible_player_ids, visible_npc_indexes)
   local packet = Packet.new(Family.Walk, Action.Reply)
   for _, player_id in ipairs(visible_player_ids) do
     packet:add_int2(player_id)
   end
   packet:add_byte(255) -- break
+  for _, npc_index in ipairs(visible_npc_indexes or {}) do
+    packet:add_int1(npc_index)
+  end
   packet:add_byte(255) -- break (0 items)
   return packet
 end

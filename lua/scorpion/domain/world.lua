@@ -1,5 +1,7 @@
 local ArenaRound = require("scorpion.domain.world.arena_round")
+local RuntimeNpcs = require("scorpion.domain.world.runtime_npcs")
 local Sessions = require("scorpion.domain.world.sessions")
+local Shops = require("scorpion.domain.world.shops")
 local Visibility = require("scorpion.domain.world.visibility")
 local Warp = require("scorpion.domain.world.warp")
 
@@ -36,6 +38,12 @@ function World.new()
       client = {},
       server = {},
     },
+    runtime_npc_owners = {},
+    runtime_npcs = {},
+    shop_db = {
+      shops = {},
+      by_behavior_id = {},
+    },
     next_session_id = 1,
     pending_sends = {},
   }, World)
@@ -44,6 +52,7 @@ end
 function World:attach_assets(assets)
   self.maps = assets.maps or {}
   self.pub = assets.pub or { client = {}, server = {} }
+  self:attach_shop_db(assets.shop_db)
 end
 
 function World:configure_arena(settings)
@@ -94,6 +103,18 @@ World.broadcast_near = Visibility.broadcast_near
 World.broadcast_map = Visibility.broadcast_map
 World.broadcast_remove_from = Visibility.broadcast_remove_from
 
+-- Shop database behavior.
+World.attach_shop_db = Shops.attach_shop_db
+World.find_shop_by_behavior_id = Shops.find_shop_by_behavior_id
+World.list_shops = Shops.list_shops
+World.shop_count = Shops.shop_count
+
+-- Runtime NPC proxy behavior.
+World.list_map_npcs = RuntimeNpcs.list_map_npcs
+World.get_runtime_npc_for_owner = RuntimeNpcs.get_runtime_npc_for_owner
+World.upsert_runtime_npc_for_owner = RuntimeNpcs.upsert_runtime_npc_for_owner
+World.remove_runtime_npc_for_owner = RuntimeNpcs.remove_runtime_npc_for_owner
+
 -- Map and warp behavior.
 World.has_map = Warp.has_map
 World.get_map_meta = Warp.get_map_meta
@@ -122,6 +143,7 @@ function World:snapshot()
     maps = count(self.maps),
     pub_client = count(self.pub.client or {}),
     pub_server = count(self.pub.server or {}),
+    shops = self:shop_count(),
   }
 end
 

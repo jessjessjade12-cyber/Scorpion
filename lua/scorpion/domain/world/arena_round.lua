@@ -135,6 +135,20 @@ function M.start_arena_round(self)
 
   self.arena_round.active = #self.arena_round.players > 0
   self.arena_round.ticks = 0
+
+  if self.arena_round.active then
+    local players = {}
+    local player_ids = {}
+    for _, id in ipairs(self.arena_round.players) do
+      player_ids[#player_ids + 1] = id
+      players[#players + 1] = self.sessions[id]
+    end
+    self:run_arena_script_hook("on_arena_start", {
+      arena_players = players,
+      arena_player_ids = player_ids,
+    })
+  end
+
   return self.arena_round.active
 end
 
@@ -221,6 +235,14 @@ function M.arena_eliminate(self, victim_id, killer_id, direction)
     self.arena_round.active = false
     self.arena_round.ticks = 0
     self.arena_round.winner = winner
+
+    self:run_arena_script_hook("on_arena_end", {
+      winner = winner,
+      winner_id = winner and winner.id or nil,
+      last_victim = victim,
+      last_victim_id = victim_id,
+    })
+
     return winner
   end
 

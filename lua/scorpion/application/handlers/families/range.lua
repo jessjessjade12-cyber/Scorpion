@@ -15,11 +15,12 @@ function M.handle(self, packet, context)
     return true
   end
 
-  local player_ids = self:parse_range_request(packet)
+  local player_ids, npc_indexes = self:parse_range_request(packet)
   local nearby = self:get_requested_nearby_sessions(session, player_ids)
+  local nearby_npcs = self:get_requested_nearby_npcs(session, npc_indexes)
 
   local reply = Packet.new(Family.Range, Action.Reply)
-  self:add_nearby_info(reply, nearby)
+  self:add_nearby_info(reply, nearby, nearby_npcs)
   return reply
 end
 

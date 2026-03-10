@@ -1,5 +1,6 @@
 local Packet = require("scorpion.transport.packet")
 local Protocol = require("scorpion.transport.protocol")
+local InventoryState = require("scorpion.application.handlers.support.inventory_state")
 
 local Family = Protocol.Family
 local Action = Protocol.Action
@@ -18,6 +19,7 @@ function M.handle(self, packet, session)
 
   self:apply_arena_only_location(session)
   self:apply_map_relog_location(session)
+  InventoryState.ensure(self, session)
 
   if session.character_id and session.character_id > 0 then
     local character = self.accounts:get_character(session.account, session.character_id)
@@ -29,6 +31,7 @@ function M.handle(self, packet, session)
   end
 
   local nearby = self:get_nearby_sessions(session)
+  local nearby_npcs = self:get_nearby_npcs(session)
   local reply = Packet.new(Family.GameData, Action.Reply)
   reply:add_int2(2) -- WelcomeCode::EnterGame
   reply:add_byte(255)
@@ -36,11 +39,16 @@ function M.handle(self, packet, session)
   for _ = 1, 8 do
     reply:add_break_string("")
   end
-  reply:add_int1(0)
-  reply:add_int1(100)
+
+  InventoryState.add_weight(reply, self, session)
+  for _, item in ipairs(InventoryState.list_items(session)) do
+    reply:add_int2(item.item_id)
+    reply:add_int4(item.amount)
+  end
+
   reply:add_byte(255)
   reply:add_byte(255)
-  self:add_nearby_info(reply, nearby)
+  self:add_nearby_info(reply, nearby, nearby_npcs)
   return reply
 end
 

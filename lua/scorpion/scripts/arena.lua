@@ -1,23 +1,13 @@
 local M = {}
 
--- Optional hook called whenever a player is eliminated in arena combat.
--- Signature: on_arena_eliminate(api, ctx)
---  - api.temporarily_disguise_as_npc(session, { npc_id?, seconds?, ... })
---  - api.temporarily_override_appearance(session, { seconds?, hair_style?, ... })
---  - api.random_npc_id([list])
---  - api.log(level, message, fields)
---  - api.config()
---  - api.clear_disguise(session)
---
--- Note: character packets only support player appearance fields.
--- The runner maps npc_id -> safe player hair/skin/sex values.
---
--- ctx fields:
---  - victim (session table)
---  - killer (session table or nil)
---  - victim_id, killer_id, direction
---  - arena_players (session array of current round participants)
---  - victim_origin { map_id, x, y, direction }
+-- Arena script hooks. Implement any or all of the following:
+
+-- Note: players cannot be turned into true NPC entities at the protocol type level.
+-- Current workaround for loser disguise is:
+--   1) hide the player entity
+--   2) spawn/move a runtime NPC proxy on top of that player
+-- Hair/non-hair avatar packet rules still apply for non-proxy appearance overrides.
+
 function M.on_arena_eliminate(api, ctx)
   local victim = ctx and ctx.victim
   if not victim then
@@ -26,54 +16,51 @@ function M.on_arena_eliminate(api, ctx)
 
   local cfg = api.config() or {}
 
-  if cfg.mass_bald_enabled == true then
-    local seconds = math.max(1, math.floor(tonumber(cfg.mass_bald_seconds) or 20))
-    local players = (ctx and ctx.arena_players) or {}
-    local affected = 0
-
-    for _, session in ipairs(players) do
-      if session and session.connected then
-        api.temporarily_override_appearance(session, {
-          seconds = seconds,
-          hair_style = 0,
-        })
-        affected = affected + 1
-      end
-    end
-
-    if affected == 0 then
-      api.temporarily_override_appearance(victim, {
-        seconds = seconds,
-        hair_style = 0,
-      })
-      affected = 1
-    end
-
-    api.log("info", "arena mass bald applied", {
-      affected = affected,
-      killer_id = ctx and ctx.killer_id or 0,
-      seconds = seconds,
-      victim_id = victim.id or 0,
-    })
-    return
-  end
-
+  -- Mass bald intentionally disabled for now.
+  -- Arena elimination always applies loser disguise.
   local npc_id = api.random_npc_id(cfg.loser_npc_ids)
   local disguise = api.temporarily_disguise_as_npc(victim, {
     npc_id = npc_id,
-    seconds = cfg.loser_duration_seconds or 3,
-    -- These optional fields can be customized for style:
-    -- hair_style = 0,
-    -- hair_color = 0,
-    -- sex = 0,
-    -- name = "loser npc",
+    seconds = cfg.loser_duration_seconds or 60,
   })
 
   api.log("info", "arena loser disguise applied", {
     victim_id = victim.id or 0,
     killer_id = ctx and ctx.killer_id or 0,
     npc_id = disguise and disguise.npc_id or 0,
-    seconds = cfg.loser_duration_seconds or 3,
+    seconds = cfg.loser_duration_seconds or 60,
+  })
+end
+
+function M.on_arena_end(api, ctx)
+  local cfg = api.config() or {}
+  local winner_reward = math.floor(tonumber(cfg.winner_gold_reward) or 500)
+  local loser_penalty = math.floor(tonumber(cfg.loser_gold_penalty) or 100)
+
+  local winner = ctx and ctx.winner
+  local loser = ctx and ctx.last_victim
+
+  local winner_after = nil
+  local winner_delta = 0
+  if winner and winner_reward ~= 0 then
+    winner_after, winner_delta = api.add_gold(winner, winner_reward)
+  end
+
+  local loser_after = nil
+  local loser_delta = 0
+  if loser and loser_penalty ~= 0 then
+    loser_after, loser_delta = api.add_gold(loser, -loser_penalty)
+  end
+
+  api.log("info", "arena round payout applied", {
+    winner_id = winner and winner.id or 0,
+    winner_gold_after = winner_after or 0,
+    winner_gold_delta = winner_delta,
+    loser_id = loser and loser.id or 0,
+    loser_gold_after = loser_after or 0,
+    loser_gold_delta = loser_delta,
+    winner_reward = winner_reward,
+    loser_penalty = loser_penalty,
   })
 end
 

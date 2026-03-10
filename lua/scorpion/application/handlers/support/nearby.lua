@@ -75,39 +75,127 @@ function M.add_character_map_info(reply, session, character)
   reply:add_int2(10)
   reply:add_int2(1)
   reply:add_int2(1)
-  for _ = 1, 9 do
-    reply:add_int2(0)
-  end
+  local equipment_graphics = session and session.equipment_graphics or {}
+  reply:add_int2(clamp(tonumber(equipment_graphics.boots) or 0, 0, 64008))
+  reply:add_int2(0)
+  reply:add_int2(0)
+  reply:add_int2(0)
+  reply:add_int2(clamp(tonumber(equipment_graphics.armor) or 0, 0, 64008))
+  reply:add_int2(0)
+  reply:add_int2(clamp(tonumber(equipment_graphics.hat) or 0, 0, 64008))
+  reply:add_int2(clamp(tonumber(equipment_graphics.shield) or 0, 0, 64008))
+  reply:add_int2(clamp(tonumber(equipment_graphics.weapon) or 0, 0, 64008))
   reply:add_int1(sit_state)
   reply:add_int1(invisible)
 end
 
-function M.add_nearby_info(reply, nearby)
+function M.add_npc_map_info(reply, npc)
+  reply:add_int1(clamp(tonumber(npc.index) or 0, 0, 252))
+  reply:add_int2(clamp(tonumber(npc.id) or 0, 0, 64008))
+  reply:add_int1(clamp(tonumber(npc.x) or 0, 0, 252))
+  reply:add_int1(clamp(tonumber(npc.y) or 0, 0, 252))
+  reply:add_int1(clamp(tonumber(npc.direction) or 0, 0, 3))
+end
+
+function M.add_nearby_info(reply, nearby, npcs)
   reply:add_int1(#nearby)
   reply:add_byte(255)
   for _, entry in ipairs(nearby) do
     M.add_character_map_info(reply, entry.session, entry.character)
     reply:add_byte(255)
   end
+
+  for _, npc in ipairs(npcs or {}) do
+    M.add_npc_map_info(reply, npc)
+  end
+
   reply:add_byte(255)
+end
+
+local function normalize_map_npc(map_id, npc)
+  if npc == nil then
+    return nil
+  end
+
+  local coords = npc.coords or {}
+  local x = tonumber(coords.x) or tonumber(npc.x) or 0
+  local y = tonumber(coords.y) or tonumber(npc.y) or 0
+
+  return {
+    map_id = map_id,
+    index = clamp(tonumber(npc.index) or 0, 0, 252),
+    id = clamp(tonumber(npc.id) or 0, 0, 64008),
+    x = clamp(x, 0, 252),
+    y = clamp(y, 0, 252),
+    direction = clamp(tonumber(npc.direction) or 0, 0, 3),
+  }
+end
+
+local function collect_map_npcs(world, center_session, wanted)
+  local result = {}
+  local map_npcs = {}
+  local center_id = tonumber(center_session and center_session.id) or 0
+
+  if world.list_map_npcs then
+    map_npcs = world:list_map_npcs(center_session.map_id) or {}
+  else
+    local map = world.maps[center_session.map_id]
+    local map_meta = map and map.meta or nil
+    map_npcs = (map_meta and map_meta.npcs) or {}
+  end
+
+  for _, npc in ipairs(map_npcs) do
+    local owner_session_id = tonumber(npc and npc.owner_session_id) or 0
+    if not (center_id > 0 and owner_session_id > 0 and owner_session_id == center_id) then
+      local normalized = normalize_map_npc(center_session.map_id, npc)
+      if normalized ~= nil and normalized.index > 0 then
+        if (wanted == nil or wanted[normalized.index]) and world:in_client_range(center_session, normalized) then
+          result[#result + 1] = normalized
+        end
+      end
+    end
+  end
+
+  return result
+end
+
+local function local_view_session(session, is_self)
+  if not is_self or session.invisible ~= true then
+    return session
+  end
+
+  return setmetatable({
+    invisible = nil,
+  }, {
+    __index = session,
+  })
 end
 
 function M.get_nearby_sessions(world, accounts, center_session)
   local result = {}
   for _, session in pairs(world.sessions) do
+    local is_self = session.id == center_session.id
     if session.connected
       and session.pending_warp == nil
       and (session.character_id and session.character_id > 0)
       and session.map_id == center_session.map_id
-      and (session.id == center_session.id or world:in_client_range(center_session, session))
+      and (is_self or session.invisible ~= true)
+      and (is_self or world:in_client_range(center_session, session))
     then
       local character = accounts:get_character(session.account, session.character_id)
       if character then
-        result[#result + 1] = { session = session, character = character }
+        result[#result + 1] = {
+          session = local_view_session(session, is_self),
+          character = character,
+        }
       end
     end
   end
   return result
+end
+
+function M.get_nearby_npcs(world, center_session)
+  return collect_map_npcs(world, center_session, nil)
 end
 
 function M.get_requested_nearby_sessions(world, accounts, center_session, player_ids)
@@ -122,22 +210,40 @@ function M.get_requested_nearby_sessions(world, accounts, center_session, player
   end
 
   for _, session in pairs(world.sessions) do
+    local is_self = session.id == center_session.id
     if wanted[session.id]
       and session.connected
       and session.pending_warp == nil
       and (session.character_id and session.character_id > 0)
       and session.map_id == center_session.map_id
+      and (is_self or session.invisible ~= true)
     then
-      if session.id == center_session.id or world:in_client_range(center_session, session) then
+      if is_self or world:in_client_range(center_session, session) then
         local character = accounts:get_character(session.account, session.character_id)
         if character then
-          requested[#requested + 1] = { session = session, character = character }
+          requested[#requested + 1] = {
+            session = local_view_session(session, is_self),
+            character = character,
+          }
         end
       end
     end
   end
 
   return requested
+end
+
+function M.get_requested_nearby_npcs(world, center_session, npc_indexes)
+  if #npc_indexes == 0 then
+    return {}
+  end
+
+  local wanted = {}
+  for _, index in ipairs(npc_indexes) do
+    wanted[index] = true
+  end
+
+  return collect_map_npcs(world, center_session, wanted)
 end
 
 return M

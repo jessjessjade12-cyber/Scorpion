@@ -100,12 +100,23 @@ local function parse_emf_unsafe(data)
   local unknown = reader:read_char("unknown")
 
   local npcs_count = reader:read_char("npcs_count")
+  local npcs = {}
   for i = 1, npcs_count do
-    read_coords(reader, ("npcs[%d].coords"):format(i))
-    reader:read_short(("npcs[%d].id"):format(i))
-    reader:read_char(("npcs[%d].spawn_type"):format(i))
-    reader:read_short(("npcs[%d].spawn_time"):format(i))
-    reader:read_char(("npcs[%d].amount"):format(i))
+    local prefix = ("npcs[%d]."):format(i)
+    local coords = read_coords(reader, prefix .. "coords")
+    local npc_id = reader:read_short(prefix .. "id")
+    local spawn_type = reader:read_char(prefix .. "spawn_type")
+    local spawn_time = reader:read_short(prefix .. "spawn_time")
+    local amount = reader:read_char(prefix .. "amount")
+
+    npcs[#npcs + 1] = {
+      index = i,
+      coords = coords,
+      id = npc_id,
+      spawn_type = spawn_type,
+      spawn_time = spawn_time,
+      amount = amount,
+    }
   end
 
   local legacy_door_keys_count = reader:read_char("legacy_door_keys_count")
@@ -206,6 +217,7 @@ local function parse_emf_unsafe(data)
     relog_x = relog_x,
     relog_y = relog_y,
     unknown = unknown,
+    npcs = npcs,
     tile_spec_rows = tile_spec_rows,
     warp_rows = warp_rows,
     bytes_remaining = reader:remaining(),

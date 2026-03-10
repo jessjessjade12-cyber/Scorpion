@@ -1,0 +1,10 @@
+Drop your client/server pub files in this folder:
+- dat001.ecf
+- dat001.eif
+- dtn001.enf
+- dsl001.esf
+- serv_drops.epf
+- serv_inns.epf
+- serv_shops.epf
+- serv_chats.epf
+- serv_trainers.epf

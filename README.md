@@ -125,6 +125,7 @@ You can customize arena elimination behavior with a Lua script:
 `api` includes:
 - `api.temporarily_disguise_as_npc(session, { npc_id?, seconds? })`
 - `api.temporarily_override_appearance(session, { seconds?, hair_style?, ... })`
+- `api.get_gold(session)`, `api.add_gold(session, delta)`, `api.set_gold(session, amount)`
 - `api.random_npc_id([list])`
 - `api.clear_disguise(session)`
 - `api.config()`
@@ -134,8 +135,14 @@ Notes:
 - Character packets only expose player appearance fields (sex/hair/skin), not NPC sprite ids.
 - `npc_id` is used as a deterministic seed for a temporary disguise style.
 - Safe appearance limits are configurable in `scripts.arena.appearance_limits`.
-- You can force temporary bald mode for all arena participants with `scripts.arena.mass_bald_enabled` and `scripts.arena.mass_bald_seconds`.
-- Disguise apply/clear/expiry now pushes `Players.Agree` updates immediately so clients refresh appearance without waiting for movement.
+- Arena elimination script currently applies loser disguise (mass-bald path is disabled for now).
+- Arena end script can apply configurable payouts (`scripts.arena.winner_gold_reward`, `scripts.arena.loser_gold_penalty`).
+- Loser disguise now uses an NPC proxy workaround: hide player map entity, then spawn/move a runtime NPC proxy with `Npc.Agree` / `Npc.Player` (despawn via `Npc.Spec`).
+- Appearance packet rules (important for nearby-player sync):
+- Bald / hairstyle changes: send `Avatar.Agree` with `AvatarChangeType=Hair (2)` and payload `player_id, change_type, sound, hair_style, hair_color`.
+- Hair-color-only changes: send `Avatar.Agree` with `AvatarChangeType=HairColor (3)` and payload `player_id, change_type, sound, hair_color`.
+- Name/level/sex/skin are not hair deltas; force a visible re-spawn (`Avatar.Remove` then `Players.Agree` with `NearbyInfo`).
+- Push a self-directed `Players.Agree` refresh if you need the local player client to immediately reflect scripted appearance changes.
 
 Example:
 

@@ -125,6 +125,14 @@ function M.handle(self, packet, context)
     end
     self:load_character_location(session, character)
     self:apply_arena_only_location(session)
+    session.shop_context = nil
+    session.shop_gold = nil
+    session.shop_items = nil
+    session.shop_max_weight = nil
+    session.inventory = nil
+    session.max_weight = nil
+    session.paperdoll = nil
+    session.equipment_graphics = nil
     local take = Packet.new(Family.Character, Action.Player)
     take:add_int2(ReplyContinue)
     take:add_int4(character.id)

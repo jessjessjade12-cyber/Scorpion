@@ -15,8 +15,14 @@ function M.handle(self, packet, context)
     return true
   end
 
-  local reply = Packet.new(Family.Mob, Action.Agree)
-  reply:add_int1(0)
+  local npc_indexes = self:parse_npc_range_request(packet)
+  local nearby_npcs = self:get_requested_nearby_npcs(session, npc_indexes)
+
+  local reply = Packet.new(Family.Npc, Action.Agree)
+  reply:add_int1(#nearby_npcs)
+  for _, npc in ipairs(nearby_npcs) do
+    self:add_npc_map_info(reply, npc)
+  end
   return reply
 end
 

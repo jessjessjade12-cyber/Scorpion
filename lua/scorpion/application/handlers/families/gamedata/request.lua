@@ -1,5 +1,6 @@
 local Packet = require("scorpion.transport.packet")
 local Protocol = require("scorpion.transport.protocol")
+local InventoryState = require("scorpion.application.handlers.support.inventory_state")
 
 local Family = Protocol.Family
 local Action = Protocol.Action
@@ -15,6 +16,8 @@ function M.handle(self, packet, session)
       self:apply_arena_only_location(session)
     end
   end
+
+  InventoryState.ensure(self, session)
 
   local map = self.world.maps[session.map_id]
   if map == nil or map.data == nil then
@@ -66,8 +69,8 @@ function M.handle(self, packet, session)
   reply:add_int2(0)
   reply:add_int2(0)
   reply:add_int2(0)
-  for _ = 1, 15 do
-    reply:add_int2(0)
+  for _, item_id in ipairs(InventoryState.welcome_equipment_item_ids(session)) do
+    reply:add_int2(item_id)
   end
   reply:add_int1(0)
   reply:add_int1(4)

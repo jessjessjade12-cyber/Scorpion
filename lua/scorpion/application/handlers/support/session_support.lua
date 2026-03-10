@@ -111,6 +111,7 @@ end
 
 function M.parse_range_request(packet)
   local player_ids = {}
+  local npc_indexes = {}
 
   while #packet.data > 0 and packet.data:byte(1) ~= 255 do
     if #packet.data < 2 then
@@ -119,7 +120,36 @@ function M.parse_range_request(packet)
     player_ids[#player_ids + 1] = packet:get_int2()
   end
 
-  return player_ids
+  if #packet.data > 0 and packet.data:byte(1) == 255 then
+    packet:discard(1)
+  end
+
+  while #packet.data > 0 do
+    npc_indexes[#npc_indexes + 1] = packet:get_int1()
+  end
+
+  return player_ids, npc_indexes
+end
+
+function M.parse_npc_range_request(packet)
+  local npc_indexes = {}
+  if #packet.data == 0 then
+    return npc_indexes
+  end
+
+  local length = packet:get_int1()
+  if #packet.data > 0 then
+    packet:get_byte()
+  end
+
+  for _ = 1, length do
+    if #packet.data == 0 then
+      break
+    end
+    npc_indexes[#npc_indexes + 1] = packet:get_int1()
+  end
+
+  return npc_indexes
 end
 
 function M.broadcast_all(world, packet, exclude_session)

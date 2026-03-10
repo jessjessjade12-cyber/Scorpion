@@ -15,13 +15,16 @@ local FamilyModules = {
   default = require("scorpion.application.handlers.families.default"),
   face = require("scorpion.application.handlers.families.face"),
   gamedata = require("scorpion.application.handlers.families.gamedata"),
+  item = require("scorpion.application.handlers.families.item"),
   login = require("scorpion.application.handlers.families.login"),
   message = require("scorpion.application.handlers.families.message"),
+  paperdoll = require("scorpion.application.handlers.families.paperdoll"),
   npc_range = require("scorpion.application.handlers.families.npc_range"),
   player_range = require("scorpion.application.handlers.families.player_range"),
   range = require("scorpion.application.handlers.families.range"),
   raw = require("scorpion.application.handlers.families.raw"),
   refresh = require("scorpion.application.handlers.families.refresh"),
+  shop = require("scorpion.application.handlers.families.shop"),
   talk = require("scorpion.application.handlers.families.talk"),
   unimplemented = require("scorpion.application.handlers.families.unimplemented"),
   walk = require("scorpion.application.handlers.families.walk"),
@@ -119,13 +122,25 @@ function SessionHandlers:get_nearby_sessions(center_session)
   return Nearby.get_nearby_sessions(self.world, self.accounts, center_session)
 end
 
--- Write NearbyInfo (characters + empty NPCs + empty items) into reply.
-function SessionHandlers:add_nearby_info(reply, nearby)
-  return Nearby.add_nearby_info(reply, nearby)
+function SessionHandlers:get_nearby_npcs(center_session)
+  return Nearby.get_nearby_npcs(self.world, center_session)
+end
+
+function SessionHandlers:add_npc_map_info(reply, npc)
+  return Nearby.add_npc_map_info(reply, npc)
+end
+
+-- Write NearbyInfo (characters + NPCs + empty items) into reply.
+function SessionHandlers:add_nearby_info(reply, nearby, npcs)
+  return Nearby.add_nearby_info(reply, nearby, npcs)
 end
 
 function SessionHandlers:get_requested_nearby_sessions(center_session, player_ids)
   return Nearby.get_requested_nearby_sessions(self.world, self.accounts, center_session, player_ids)
+end
+
+function SessionHandlers:get_requested_nearby_npcs(center_session, npc_indexes)
+  return Nearby.get_requested_nearby_npcs(self.world, center_session, npc_indexes)
 end
 
 function SessionHandlers:parse_player_ids(packet)
@@ -134,6 +149,10 @@ end
 
 function SessionHandlers:parse_range_request(packet)
   return SessionSupport.parse_range_request(packet)
+end
+
+function SessionHandlers:parse_npc_range_request(packet)
+  return SessionSupport.parse_npc_range_request(packet)
 end
 
 function SessionHandlers:broadcast_all(packet, exclude_session)
@@ -176,12 +195,13 @@ function SessionHandlers:register(router)
     { family = Family.Sit,        name = "HandleUnimplemented" },
     { family = Family.Warp,       name = "HandleWarp"          },
     { family = Family.Message,    name = "HandleMessage"        },
-    { family = Family.Paperdoll,  name = "HandleUnimplemented" },
+    { family = Family.Paperdoll,  name = "HandlePaperdoll" },
     { family = Family.Players,    name = "HandleUnimplemented" },
     { family = Family.Door,       name = "HandleUnimplemented" },
     { family = Family.Emote,      name = "HandleUnimplemented" },
+    { family = Family.Shop,       name = "HandleShop"          },
     { family = Family.Chair,      name = "HandleUnimplemented" },
-    { family = Family.Item,       name = "HandleUnimplemented" },
+    { family = Family.Item,       name = "HandleItem"          },
     { family = Family.Locker,     name = "HandleUnimplemented" },
     { family = Family.Attack,     name = "HandleAttack"        },
     { family = Family.Refresh,    name = "HandleRefresh"       },
@@ -253,6 +273,18 @@ end
 
 function SessionHandlers:HandleTalk(packet, context)
   return FamilyModules.talk.handle(self, packet, context)
+end
+
+function SessionHandlers:HandleShop(packet, context)
+  return FamilyModules.shop.handle(self, packet, context)
+end
+
+function SessionHandlers:HandlePaperdoll(packet, context)
+  return FamilyModules.paperdoll.handle(self, packet, context)
+end
+
+function SessionHandlers:HandleItem(packet, context)
+  return FamilyModules.item.handle(self, packet, context)
 end
 
 function SessionHandlers:HandleUnimplemented(packet, context)

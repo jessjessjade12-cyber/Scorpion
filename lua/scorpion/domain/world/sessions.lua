@@ -7,6 +7,9 @@ function M.add_session(self, session)
 end
 
 function M.remove_session(self, session_id)
+  if self.remove_runtime_npc_for_owner then
+    self:remove_runtime_npc_for_owner(session_id)
+  end
   self.sessions[session_id] = nil
 end
 
