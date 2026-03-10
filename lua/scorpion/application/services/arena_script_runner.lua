@@ -119,6 +119,18 @@ local function point_from_session(session)
   }
 end
 
+local function local_visible_session(session)
+  if not session or session.invisible ~= true then
+    return session
+  end
+
+  return setmetatable({
+    invisible = false,
+  }, {
+    __index = session,
+  })
+end
+
 local function push_packet_near_origin(world, origin, packet, include_session, exclude_session_or_id)
   if not world or not origin or not packet then
     return
@@ -628,7 +640,9 @@ function ArenaScriptRunner:refresh_character(session, reason, force_full_refresh
 
   if not use_npc_proxy then
     local self_packet = Packet.new(Family.Players, Action.Agree)
-    Nearby.add_nearby_info(self_packet, { { session = session, character = character } })
+    Nearby.add_nearby_info(self_packet, {
+      { session = local_visible_session(session), character = character },
+    })
     if session.address then
       self.world:push_pending(session.address, self_packet)
     end
@@ -657,16 +671,18 @@ function ArenaScriptRunner:tick()
   local now = os.time()
   for _, session in pairs(self.world.sessions) do
     local disguise = session and session.script_disguise or nil
-    if disguise then
-      local expires_at = tonumber(disguise.expires_at) or 0
-      if expires_at > 0 and now >= expires_at then
-        local force_full_refresh = session.script_disguise_full_refresh == true
-          or session.script_npc_proxy_enabled == true
-        self:disable_npc_proxy(session, "expired")
-        session.script_disguise = nil
-        session.script_disguise_full_refresh = nil
-        self:refresh_character(session, "expired", force_full_refresh)
-      end
+    local expires_at = tonumber(disguise and disguise.expires_at) or 0
+    local expired = expires_at > 0 and now >= expires_at
+    local stale_proxy = session and session.script_npc_proxy_enabled == true and not disguise
+
+    if expired or stale_proxy then
+      local force_full_refresh = session.script_disguise_full_refresh == true
+        or session.script_npc_proxy_enabled == true
+      local reason = expired and "expired" or "stale_proxy"
+      self:disable_npc_proxy(session, reason)
+      session.script_disguise = nil
+      session.script_disguise_full_refresh = nil
+      self:refresh_character(session, reason, force_full_refresh)
     end
   end
 

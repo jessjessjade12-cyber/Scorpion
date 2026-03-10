@@ -11,7 +11,6 @@ local function active_disguise(session)
 
   local expires_at = tonumber(disguise.expires_at) or 0
   if expires_at > 0 and os.time() >= expires_at then
-    session.script_disguise = nil
     return nil
   end
 
@@ -165,7 +164,7 @@ local function local_view_session(session, is_self)
   end
 
   return setmetatable({
-    invisible = nil,
+    invisible = false,
   }, {
     __index = session,
   })
