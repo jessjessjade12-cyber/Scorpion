@@ -141,6 +141,25 @@ function World:broadcast_map(map_id, packet)
   end
 end
 
+-- Queue Avatar.Remove to sessions near an origin position (excluding player_id).
+function World:broadcast_remove_from(origin, player_id, warp_effect)
+  if not origin or not player_id then
+    return
+  end
+
+  local remove = Packet.new(Family.Avatar, Action.Remove)
+  remove:add_int2(player_id)
+  if warp_effect ~= nil then
+    remove:add_int1(warp_effect)
+  end
+
+  for _, session in pairs(self.sessions) do
+    if session.connected and session.id ~= player_id and self:in_range(origin, session) then
+      self:push_pending(session.address, remove)
+    end
+  end
+end
+
 function World:find_session_by_account(account_name)
   for _, session in pairs(self.sessions) do
     if session.account == account_name and session.connected then
@@ -201,16 +220,6 @@ end
 function World:request_local_warp(session, map_id, x, y, direction)
   if not session or not session.connected then
     return false
-  end
-
-  -- eoweb keeps cached nearby entries until explicit cleanup; send map-wide
-  -- Avatar.Remove on local warp so stale clients do not retain ghosts.
-  local remove = Packet.new(Family.Avatar, Action.Remove)
-  remove:add_int2(session.id)
-  for _, other in pairs(self.sessions) do
-    if other.connected and other.id ~= session.id and other.map_id == session.map_id then
-      self:push_pending(other.address, remove)
-    end
   end
 
   local target_map = tonumber(map_id) or 0

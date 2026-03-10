@@ -1010,6 +1010,15 @@ function SessionHandlers:HandleWarp(packet, _context)
         return nil, "invalid warp map"
       end
 
+      local old_position = {
+        map_id = session.map_id,
+        x = session.x,
+        y = session.y,
+      }
+      if session.character_id and session.character_id > 0 then
+        self.world:broadcast_remove_from(old_position, session.id)
+      end
+
       session.map_id = pending.map_id
       session.x = pending.x
       session.y = pending.y
