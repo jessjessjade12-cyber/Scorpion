@@ -173,7 +173,17 @@ end
 
 function M.get_nearby_sessions(world, accounts, center_session)
   local result = {}
-  for _, session in pairs(world.sessions) do
+  local seen = {}
+  local candidates = world.list_nearby_sessions
+    and world:list_nearby_sessions(center_session, 14)
+    or world.sessions
+
+  local function try_add(session)
+    if not session or seen[session.id] then
+      return
+    end
+    seen[session.id] = true
+
     local is_self = session.id == center_session.id
     if session.connected
       and session.pending_warp == nil
@@ -191,6 +201,11 @@ function M.get_nearby_sessions(world, accounts, center_session)
       end
     end
   end
+
+  try_add(center_session)
+  for _, session in pairs(candidates) do
+    try_add(session)
+  end
   return result
 end
 
@@ -204,27 +219,31 @@ function M.get_requested_nearby_sessions(world, accounts, center_session, player
   end
 
   local requested = {}
-  local wanted = {}
+  local seen = {}
   for _, id in ipairs(player_ids) do
-    wanted[id] = true
-  end
+    local session = world.sessions[id]
+    if session and not seen[session.id] then
+      seen[session.id] = true
+    else
+      session = nil
+    end
 
-  for _, session in pairs(world.sessions) do
-    local is_self = session.id == center_session.id
-    if wanted[session.id]
-      and session.connected
-      and session.pending_warp == nil
-      and (session.character_id and session.character_id > 0)
-      and session.map_id == center_session.map_id
-      and (is_self or session.invisible ~= true)
-    then
-      if is_self or world:in_client_range(center_session, session) then
-        local character = accounts:get_character(session.account, session.character_id)
-        if character then
-          requested[#requested + 1] = {
-            session = local_view_session(session, is_self),
-            character = character,
-          }
+    if session then
+      local is_self = session.id == center_session.id
+      if session.connected
+        and session.pending_warp == nil
+        and (session.character_id and session.character_id > 0)
+        and session.map_id == center_session.map_id
+        and (is_self or session.invisible ~= true)
+      then
+        if is_self or world:in_client_range(center_session, session) then
+          local character = accounts:get_character(session.account, session.character_id)
+          if character then
+            requested[#requested + 1] = {
+              session = local_view_session(session, is_self),
+              character = character,
+            }
+          end
         end
       end
     end

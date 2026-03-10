@@ -118,6 +118,9 @@ function M.arena_respawn(self, session)
   session.x = target_x
   session.y = target_y
   session.direction = target_direction
+  if self.sync_session_spatial then
+    self:sync_session_spatial(session)
+  end
 end
 
 return M

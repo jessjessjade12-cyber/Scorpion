@@ -132,7 +132,11 @@ local function push_packet_near_origin(world, origin, packet, include_session, e
     exclude_id = exclude_session_or_id
   end
 
-  for _, receiver in pairs(world.sessions) do
+  local candidates = world.list_nearby_sessions
+    and world:list_nearby_sessions(origin, 15)
+    or world.sessions
+
+  for _, receiver in pairs(candidates) do
     local in_scope = receiver.connected
       and receiver.pending_warp == nil
       and receiver.address ~= nil

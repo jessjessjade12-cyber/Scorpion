@@ -36,7 +36,11 @@ end
 
 -- Queue a packet to all connected sessions near from_session (excluding sender).
 function M.broadcast_near(self, from_session, packet)
-  for _, session in pairs(self.sessions) do
+  local candidates = self.list_nearby_sessions
+    and self:list_nearby_sessions(from_session, 15)
+    or self.sessions
+
+  for _, session in pairs(candidates) do
     -- Range must be evaluated from the receiver perspective.
     if session.id ~= from_session.id and session.connected and self:in_range(session, from_session) then
       self:push_pending(session.address, packet)
@@ -46,7 +50,11 @@ end
 
 -- Queue a packet to all connected sessions on a map.
 function M.broadcast_map(self, map_id, packet)
-  for _, session in pairs(self.sessions) do
+  local candidates = self.list_map_sessions
+    and self:list_map_sessions(map_id)
+    or self.sessions
+
+  for _, session in pairs(candidates) do
     if session.connected and session.map_id == map_id then
       self:push_pending(session.address, packet)
     end
@@ -65,7 +73,11 @@ function M.broadcast_remove_from(self, origin, player_id, warp_effect)
     remove:add_int1(warp_effect)
   end
 
-  for _, session in pairs(self.sessions) do
+  local candidates = self.list_nearby_sessions
+    and self:list_nearby_sessions(origin, 15)
+    or self.sessions
+
+  for _, session in pairs(candidates) do
     if session.connected and session.id ~= player_id and self:in_range(session, origin) then
       self:push_pending(session.address, remove)
     end

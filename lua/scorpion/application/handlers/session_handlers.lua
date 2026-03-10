@@ -79,7 +79,11 @@ function SessionHandlers:auth_client(auth)
 end
 
 function SessionHandlers:load_character_location(session, character)
-  return SessionSupport.load_character_location(session, character)
+  local out = SessionSupport.load_character_location(session, character)
+  if self.world.sync_session_spatial then
+    self.world:sync_session_spatial(session)
+  end
+  return out
 end
 
 function SessionHandlers:valid_account_name(name)
@@ -91,11 +95,19 @@ function SessionHandlers:valid_character_name(name)
 end
 
 function SessionHandlers:apply_arena_only_location(session)
-  return SessionSupport.apply_arena_only_location(self.settings, session)
+  local out = SessionSupport.apply_arena_only_location(self.settings, session)
+  if self.world.sync_session_spatial then
+    self.world:sync_session_spatial(session)
+  end
+  return out
 end
 
 function SessionHandlers:apply_map_relog_location(session)
-  return SessionSupport.apply_map_relog_location(self.world, session)
+  local out = SessionSupport.apply_map_relog_location(self.world, session)
+  if self.world.sync_session_spatial then
+    self.world:sync_session_spatial(session)
+  end
+  return out
 end
 
 function SessionHandlers:get_pub_blob(key)

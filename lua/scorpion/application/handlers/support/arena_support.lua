@@ -86,7 +86,23 @@ end
 
 function M.newly_visible_player_ids(world, session, previous)
   local visible_player_ids = {}
-  for _, other in pairs(world.sessions) do
+  local candidates = {}
+  local indexed = world.list_nearby_sessions ~= nil
+
+  if indexed then
+    for _, other in ipairs(world:list_nearby_sessions(session, 14)) do
+      candidates[other.id] = other
+    end
+    for _, other in ipairs(world:list_nearby_sessions(previous, 14)) do
+      candidates[other.id] = other
+    end
+  else
+    for _, other in pairs(world.sessions) do
+      candidates[other.id] = other
+    end
+  end
+
+  for _, other in pairs(candidates) do
     if other.id ~= session.id
       and other.connected
       and (other.character_id and other.character_id > 0)

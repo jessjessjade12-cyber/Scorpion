@@ -2,6 +2,7 @@ local ArenaRound = require("scorpion.domain.world.arena_round")
 local RuntimeNpcs = require("scorpion.domain.world.runtime_npcs")
 local Sessions = require("scorpion.domain.world.sessions")
 local Shops = require("scorpion.domain.world.shops")
+local Spatial = require("scorpion.domain.world.spatial")
 local Visibility = require("scorpion.domain.world.visibility")
 local Warp = require("scorpion.domain.world.warp")
 
@@ -38,6 +39,8 @@ function World.new()
       client = {},
       server = {},
     },
+    session_spatial = {},
+    spatial_index = {},
     runtime_npc_owners = {},
     runtime_npcs = {},
     shop_db = {
@@ -95,6 +98,12 @@ World.remove_session = Sessions.remove_session
 World.find_session_by_account = Sessions.find_session_by_account
 World.find_session_by_address = Sessions.find_session_by_address
 World.create_session = Sessions.create_session
+
+-- Spatial session index behavior.
+World.sync_session_spatial = Spatial.sync_session_spatial
+World.remove_session_spatial = Spatial.remove_session_spatial
+World.list_map_sessions = Spatial.list_map_sessions
+World.list_nearby_sessions = Spatial.list_nearby_sessions
 
 -- Visibility and broadcast behavior.
 World.in_range = Visibility.in_range

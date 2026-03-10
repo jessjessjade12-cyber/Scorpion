@@ -126,6 +126,9 @@ function M.start_arena_round(self)
     if not warped then
       session.x = entry.to.x
       session.y = entry.to.y
+      if self.sync_session_spatial then
+        self:sync_session_spatial(session)
+      end
     end
 
     if not contains(self.arena_round.players, session.id) then

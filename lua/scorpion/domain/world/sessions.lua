@@ -4,9 +4,15 @@ local M = {}
 
 function M.add_session(self, session)
   self.sessions[session.id] = session
+  if self.sync_session_spatial then
+    self:sync_session_spatial(session)
+  end
 end
 
 function M.remove_session(self, session_id)
+  if self.remove_session_spatial then
+    self:remove_session_spatial(session_id)
+  end
   if self.remove_runtime_npc_for_owner then
     self:remove_runtime_npc_for_owner(session_id)
   end

@@ -29,6 +29,9 @@ function ArenaHandlers:on_login(session)
   session.x = spawn.x
   session.y = spawn.y
   session.direction = spawn.direction
+  if self.world.sync_session_spatial then
+    self.world:sync_session_spatial(session)
+  end
 end
 
 function ArenaHandlers:get_map_meta(map_id)
@@ -55,6 +58,9 @@ function ArenaHandlers:handle_walk(packet, session)
 
   local direction = ArenaSupport.read_walk_direction(packet)
   local previous = ArenaSupport.apply_step(session, direction)
+  if self.world.sync_session_spatial then
+    self.world:sync_session_spatial(session)
+  end
   local runner = self.world.arena_script_runner
 
   if session.script_npc_proxy_enabled == true and runner and runner.sync_npc_proxy then

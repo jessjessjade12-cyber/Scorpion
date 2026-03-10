@@ -111,6 +111,9 @@ function M.handle(self, packet, context)
       session.x = 0
       session.y = 0
       session.direction = 0
+      if self.world.sync_session_spatial then
+        self.world:sync_session_spatial(session)
+      end
     end
     reply:add_int2(CharacterReply.Deleted)
     self:build_characters_packet(reply, session.account)
