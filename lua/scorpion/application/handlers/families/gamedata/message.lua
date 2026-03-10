@@ -32,6 +32,7 @@ function M.handle(self, packet, session)
 
   local nearby = self:get_nearby_sessions(session)
   local nearby_npcs = self:get_nearby_npcs(session)
+  local nearby_items = self:get_nearby_items(session)
   local reply = Packet.new(Family.GameData, Action.Reply)
   reply:add_int2(2) -- WelcomeCode::EnterGame
   reply:add_byte(255)
@@ -48,7 +49,7 @@ function M.handle(self, packet, session)
 
   reply:add_byte(255)
   reply:add_byte(255)
-  self:add_nearby_info(reply, nearby, nearby_npcs)
+  self:add_nearby_info(reply, nearby, nearby_npcs, nearby_items)
   return reply
 end
 

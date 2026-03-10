@@ -143,13 +143,21 @@ function SessionHandlers:get_nearby_npcs(center_session)
   return Nearby.get_nearby_npcs(self.world, center_session)
 end
 
+function SessionHandlers:get_nearby_items(center_session)
+  return Nearby.get_nearby_items(self.world, center_session)
+end
+
 function SessionHandlers:add_npc_map_info(reply, npc)
   return Nearby.add_npc_map_info(reply, npc)
 end
 
--- Write NearbyInfo (characters + NPCs + empty items) into reply.
-function SessionHandlers:add_nearby_info(reply, nearby, npcs)
-  return Nearby.add_nearby_info(reply, nearby, npcs)
+function SessionHandlers:add_item_map_info(reply, item)
+  return Nearby.add_item_map_info(reply, item)
+end
+
+-- Write NearbyInfo (characters + NPCs + items) into reply.
+function SessionHandlers:add_nearby_info(reply, nearby, npcs, items)
+  return Nearby.add_nearby_info(reply, nearby, npcs, items)
 end
 
 function SessionHandlers:get_requested_nearby_sessions(center_session, player_ids)
@@ -158,6 +166,10 @@ end
 
 function SessionHandlers:get_requested_nearby_npcs(center_session, npc_indexes)
   return Nearby.get_requested_nearby_npcs(self.world, center_session, npc_indexes)
+end
+
+function SessionHandlers:get_requested_nearby_items(center_session, item_uids)
+  return Nearby.get_requested_nearby_items(self.world, center_session, item_uids)
 end
 
 function SessionHandlers:parse_player_ids(packet)

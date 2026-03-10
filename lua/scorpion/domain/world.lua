@@ -1,4 +1,5 @@
 local ArenaRound = require("scorpion.domain.world.arena_round")
+local MapItems = require("scorpion.domain.world.map_items")
 local NpcMotion = require("scorpion.domain.world.npc_motion")
 local RuntimeNpcs = require("scorpion.domain.world.runtime_npcs")
 local Sessions = require("scorpion.domain.world.sessions")
@@ -36,6 +37,7 @@ function World.new()
     },
     sessions = {},
     maps = {},
+    map_items = {},
     pub = {
       client = {},
       server = {},
@@ -169,6 +171,14 @@ World.get_runtime_npc_for_owner = RuntimeNpcs.get_runtime_npc_for_owner
 World.upsert_runtime_npc_for_owner = RuntimeNpcs.upsert_runtime_npc_for_owner
 World.remove_runtime_npc_for_owner = RuntimeNpcs.remove_runtime_npc_for_owner
 
+-- Ground item behavior.
+World.list_map_items = MapItems.list_map_items
+World.find_map_item = MapItems.find_map_item
+World.add_map_item = MapItems.add_map_item
+World.take_map_item = MapItems.take_map_item
+World.remove_map_item = MapItems.remove_map_item
+World.map_item_count = MapItems.map_item_count
+
 -- Static NPC movement behavior.
 World.configure_npc_movement = NpcMotion.configure_npc_movement
 World.tick_npcs = NpcMotion.tick_npcs
@@ -203,6 +213,7 @@ function World:snapshot()
     pub_client = count(self.pub.client or {}),
     pub_server = count(self.pub.server or {}),
     shops = self:shop_count(),
+    map_items = self:map_item_count(),
     spatial_indexed_sessions = spatial.indexed_sessions or 0,
     spatial_maps = spatial.maps_indexed or 0,
     spatial_nearby_avg_results = spatial.nearby_avg_results or 0,

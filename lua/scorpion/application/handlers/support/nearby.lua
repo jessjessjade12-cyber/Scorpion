@@ -2,6 +2,8 @@ local util = require("scorpion.util")
 local clamp = util.clamp
 
 local M = {}
+local MAX_ITEM_UID = 64008
+local MAX_ITEM_AMOUNT = 16194276
 
 local function active_disguise(session)
   local disguise = session and session.script_disguise or nil
@@ -96,7 +98,15 @@ function M.add_npc_map_info(reply, npc)
   reply:add_int1(clamp(tonumber(npc.direction) or 0, 0, 3))
 end
 
-function M.add_nearby_info(reply, nearby, npcs)
+function M.add_item_map_info(reply, item)
+  reply:add_int2(clamp(tonumber(item.uid) or 0, 0, MAX_ITEM_UID))
+  reply:add_int2(clamp(tonumber(item.id) or 0, 0, 64008))
+  reply:add_int1(clamp(tonumber(item.x) or 0, 0, 252))
+  reply:add_int1(clamp(tonumber(item.y) or 0, 0, 252))
+  reply:add_int3(clamp(tonumber(item.amount) or 0, 0, MAX_ITEM_AMOUNT))
+end
+
+function M.add_nearby_info(reply, nearby, npcs, items)
   reply:add_int1(#nearby)
   reply:add_byte(255)
   for _, entry in ipairs(nearby) do
@@ -109,6 +119,10 @@ function M.add_nearby_info(reply, nearby, npcs)
   end
 
   reply:add_byte(255)
+
+  for _, item in ipairs(items or {}) do
+    M.add_item_map_info(reply, item)
+  end
 end
 
 local function normalize_map_npc(map_id, npc)
@@ -151,6 +165,44 @@ local function collect_map_npcs(world, center_session, wanted)
         if (wanted == nil or wanted[normalized.index]) and world:in_client_range(center_session, normalized) then
           result[#result + 1] = normalized
         end
+      end
+    end
+  end
+
+  return result
+end
+
+local function normalize_map_item(map_id, item)
+  if item == nil then
+    return nil
+  end
+
+  local x = tonumber(item.x) or tonumber(((item or {}).coords or {}).x) or 0
+  local y = tonumber(item.y) or tonumber(((item or {}).coords or {}).y) or 0
+
+  return {
+    map_id = map_id,
+    uid = clamp(tonumber(item.uid) or tonumber(item.index) or 0, 0, MAX_ITEM_UID),
+    id = clamp(tonumber(item.id) or 0, 0, 64008),
+    x = clamp(x, 0, 252),
+    y = clamp(y, 0, 252),
+    amount = clamp(tonumber(item.amount) or 0, 0, MAX_ITEM_AMOUNT),
+  }
+end
+
+local function collect_map_items(world, center_session, wanted)
+  local result = {}
+  local map_items = {}
+
+  if world.list_map_items then
+    map_items = world:list_map_items(center_session.map_id) or {}
+  end
+
+  for _, item in ipairs(map_items) do
+    local normalized = normalize_map_item(center_session.map_id, item)
+    if normalized ~= nil and normalized.uid > 0 and normalized.amount > 0 then
+      if (wanted == nil or wanted[normalized.uid]) and world:in_client_range(center_session, normalized) then
+        result[#result + 1] = normalized
       end
     end
   end
@@ -212,6 +264,10 @@ function M.get_nearby_npcs(world, center_session)
   return collect_map_npcs(world, center_session, nil)
 end
 
+function M.get_nearby_items(world, center_session)
+  return collect_map_items(world, center_session, nil)
+end
+
 function M.get_requested_nearby_sessions(world, accounts, center_session, player_ids)
   if #player_ids == 0 then
     return {}
@@ -262,6 +318,19 @@ function M.get_requested_nearby_npcs(world, center_session, npc_indexes)
   end
 
   return collect_map_npcs(world, center_session, wanted)
+end
+
+function M.get_requested_nearby_items(world, center_session, item_uids)
+  if #item_uids == 0 then
+    return {}
+  end
+
+  local wanted = {}
+  for _, uid in ipairs(item_uids) do
+    wanted[uid] = true
+  end
+
+  return collect_map_items(world, center_session, wanted)
 end
 
 return M

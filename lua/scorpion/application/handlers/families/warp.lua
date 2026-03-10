@@ -56,9 +56,10 @@ function M.handle(self, packet, context)
 
       local nearby = self:get_nearby_sessions(session)
       local nearby_npcs = self:get_nearby_npcs(session)
+      local nearby_items = self:get_nearby_items(session)
       local reply = Packet.new(Family.Warp, Action.Agree)
       reply:add_int1(1)
-      self:add_nearby_info(reply, nearby, nearby_npcs)
+      self:add_nearby_info(reply, nearby, nearby_npcs, nearby_items)
       return reply
     end
   end

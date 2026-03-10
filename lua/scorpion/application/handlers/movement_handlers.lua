@@ -76,7 +76,8 @@ function MovementHandlers:handle_walk(packet, session)
 
   local visible_player_ids = MovementSupport.newly_visible_player_ids(self.world, session, previous)
   local visible_npc_indexes = MovementSupport.newly_visible_npc_indexes(self.world, session, previous)
-  return MovementSupport.walk_reply_packet(visible_player_ids, visible_npc_indexes)
+  local visible_items = MovementSupport.newly_visible_items(self.world, session, previous)
+  return MovementSupport.walk_reply_packet(visible_player_ids, visible_npc_indexes, visible_items)
 end
 
 function MovementHandlers:handle_warp(packet, session)

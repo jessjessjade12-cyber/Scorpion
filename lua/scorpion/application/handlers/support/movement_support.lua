@@ -1,5 +1,6 @@
 local Packet = require("scorpion.transport.packet")
 local Protocol = require("scorpion.transport.protocol")
+local Nearby = require("scorpion.application.handlers.support.nearby")
 local util = require("scorpion.util")
 
 local Family = Protocol.Family
@@ -147,6 +148,23 @@ function M.newly_visible_npc_indexes(world, session, previous)
   return visible_npc_indexes
 end
 
+function M.newly_visible_items(world, session, previous)
+  local visible_items = {}
+  local map_items = world.list_map_items and world:list_map_items(session.map_id) or {}
+
+  for _, item in ipairs(map_items) do
+    if (tonumber(item.amount) or 0) > 0 and world:in_client_range(session, item) and not world:in_client_range(previous, item) then
+      visible_items[#visible_items + 1] = item
+    end
+  end
+
+  table.sort(visible_items, function(a, b)
+    return (tonumber(a.uid) or 0) < (tonumber(b.uid) or 0)
+  end)
+
+  return visible_items
+end
+
 function M.next_coords(x, y, direction, width, height)
   local nx, ny = x, y
   if direction == 0 then
@@ -217,7 +235,7 @@ function M.walk_player_packet(session)
   return packet
 end
 
-function M.walk_reply_packet(visible_player_ids, visible_npc_indexes)
+function M.walk_reply_packet(visible_player_ids, visible_npc_indexes, visible_items)
   local packet = Packet.new(Family.Walk, Action.Reply)
   for _, player_id in ipairs(visible_player_ids) do
     packet:add_int2(player_id)
@@ -226,7 +244,12 @@ function M.walk_reply_packet(visible_player_ids, visible_npc_indexes)
   for _, npc_index in ipairs(visible_npc_indexes or {}) do
     packet:add_int1(npc_index)
   end
-  packet:add_byte(255) -- break (0 items)
+  packet:add_byte(255) -- break
+
+  for _, item in ipairs(visible_items or {}) do
+    Nearby.add_item_map_info(packet, item)
+  end
+
   return packet
 end
 
