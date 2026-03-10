@@ -61,36 +61,25 @@ accounts = {
 
 ## Architecture
 
-```
-EO Client (TCP)          Browser Client (WebSocket)
-      |                          |
-      +----------+---------------+
-                 |
-          [ net_server.lua ]
-          socket.select loop
-                 |
-          [ codec.lua / websocket.lua ]
-          decrypt / unwrap frames
-                 |
-          [ router.lua ]
-          dispatch by family+action
-                 |
-        +--------+--------+
-        |                 |
-[ session_handlers ]  [ arena_handlers ]
-  login, character,    walk, attack,
-  warp, chat           arena rounds
-        |                 |
-        +--------+--------+
-                 |
-           [ world.lua ]
-           arena state,
-           sessions, spawns
-                 |
-        +--------+--------+
-        |                 |
-  [ asset_loader ]   [ accounts_memory ]
-  maps, pub files    in-memory accounts
+```mermaid
+flowchart TD
+    A[EO Client\nTCP :8081] --> N
+    B[Browser Client\nWebSocket :8079] --> N
+
+    N[net_server.lua\nsocket.select loop]
+    N --> C[codec.lua\ndecrypt / re-sequence]
+    N --> W[websocket.lua\nunwrap frames]
+    C --> R[router.lua\ndispatch by family + action]
+    W --> R
+
+    R --> SH[session_handlers.lua\nlogin · character · warp · chat]
+    R --> AH[arena_handlers.lua\nwalk · attack · arena rounds]
+
+    SH --> WO[world.lua\narena state · sessions · spawns]
+    AH --> WO
+
+    WO --> AL[asset_loader.lua\nmaps · pub files]
+    WO --> AM[accounts_memory.lua\nin-memory accounts]
 ```
 
 Logs → `logs/scorpion.log`
