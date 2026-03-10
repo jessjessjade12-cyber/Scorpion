@@ -1,5 +1,17 @@
 local M = {}
 
+local function copy_table(value)
+  if type(value) ~= "table" then
+    return value
+  end
+
+  local out = {}
+  for k, v in pairs(value) do
+    out[copy_table(k)] = copy_table(v)
+  end
+  return out
+end
+
 function M.auth_client(auth)
   auth = auth + 1
   local result = ((auth % 11) + 1) * 119
@@ -16,6 +28,9 @@ function M.load_character_location(session, character)
   session.x = character.x
   session.y = character.y
   session.direction = character.direction
+  session.inventory = copy_table(character.inventory)
+  session.max_weight = character.max_weight
+  session.paperdoll = copy_table(character.paperdoll)
 end
 
 function M.valid_account_name(name)

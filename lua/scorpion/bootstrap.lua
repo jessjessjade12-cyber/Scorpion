@@ -1,4 +1,4 @@
-local AccountsMemory = require("scorpion.infrastructure.accounts_memory")
+local AccountsMongo = require("scorpion.infrastructure.accounts_mongo")
 local AssetLoader = require("scorpion.infrastructure.asset_loader")
 local ArenaScriptRunner = require("scorpion.application.services.arena_script_runner")
 local Codec = require("scorpion.transport.codec")
@@ -15,7 +15,7 @@ local Bootstrap = {}
 function Bootstrap.build()
   local settings = Settings.load()
   local logger = Logger.new(settings)
-  local accounts = AccountsMemory.new(settings.accounts, settings)
+  local accounts = AccountsMongo.new(settings.accounts, settings)
   local world = World.new()
   local assets = AssetLoader.load(settings)
 
@@ -31,6 +31,8 @@ function Bootstrap.build()
 
   local router = Router.new()
   local server = Server.new({
+    accounts = accounts,
+    logger = logger,
     settings = settings,
     router = router,
     world = world,
@@ -38,6 +40,7 @@ function Bootstrap.build()
   local handlers = SessionHandlers.new({
     accounts = accounts,
     logger = logger,
+    server = server,
     settings = settings,
     world = world,
   })

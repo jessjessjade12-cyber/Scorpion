@@ -47,6 +47,7 @@ function SessionHandlers.new(deps)
       world = deps.world,
     }),
     logger = deps.logger,
+    server = deps.server,
     settings = deps.settings,
     world = deps.world,
   }, SessionHandlers)
@@ -84,6 +85,10 @@ function SessionHandlers:auth_client(auth)
 end
 
 function SessionHandlers:load_character_location(session, character)
+  if self.server and (session.character_id and session.character_id > 0) then
+    self.server:save_session(session, "character_switch")
+  end
+
   local out = SessionSupport.load_character_location(session, character)
   if self.world.sync_session_spatial then
     self.world:sync_session_spatial(session)

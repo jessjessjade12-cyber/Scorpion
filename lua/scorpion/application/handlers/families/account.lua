@@ -98,9 +98,13 @@ function M.handle(self, packet, context)
       return reply
     end
 
-    local created = self.accounts:create_account(account_name, password)
+    local created, create_err = self.accounts:create_account(account_name, password)
     if not created then
-      self:trace("warn", "account create rejected", { reason = "create_failed", username = account_name })
+      self:trace("warn", "account create rejected", {
+        reason = "create_failed",
+        username = account_name,
+        error = tostring(create_err or "unknown"),
+      })
       reply:add_int2(AccountReply.ChangeFailed)
       reply:add_string(ReplyStrNO)
       return reply

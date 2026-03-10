@@ -6,11 +6,33 @@ A dedicated **Endless Online arena server** written in Lua 5.1. Players queue, g
 
 ## Quick Start
 
+Run from an **elevated PowerShell** window the first time (needed for Chocolatey installs):
+
 ```powershell
 powershell -ExecutionPolicy Bypass -File install.ps1
 ```
 
-Installs Lua 5.1 via Chocolatey if needed, then starts the server. To start manually after install:
+`install.ps1` will:
+- install missing dependencies (`lua`, `mongodb`, `mongosh`) via Chocolatey
+- create/use local Mongo data at `Data\mongo`
+- start `mongod` on `127.0.0.1:27017` if it is not running
+- start Scorpion
+
+After dependencies are installed, non-elevated runs are fine.
+
+---
+
+## Manual Run
+
+If you prefer separate terminals:
+
+1. Start MongoDB:
+
+```powershell
+mongod --dbpath .\Data\mongo --bind_ip 127.0.0.1 --port 27017
+```
+
+2. Start server:
 
 ```powershell
 & "C:\Program Files (x86)\Lua\5.1\lua.exe" lua/main.lua
@@ -22,6 +44,16 @@ Installs Lua 5.1 via Chocolatey if needed, then starts the server. To start manu
 
 EO client version `0.0.28` - point it at `127.0.0.1:8081`.
 Browser/WebSocket clients use port `8079`.
+
+---
+
+## MongoDB Runtime
+
+MongoDB is required at runtime. There is no file or pure-memory account fallback.
+
+- Default URI: `mongodb://127.0.0.1:27017`
+- Default DB: `scorpion`
+- If `mongosh` is not on PATH in your runtime shell, set `persistence.mongodb.mongosh_path` to an absolute path (for example `C:/Users/<you>/AppData/Local/Programs/mongosh/mongosh.exe`).
 
 ---
 
@@ -51,15 +83,11 @@ All settings are in [lua/scorpion/infrastructure/settings.lua](lua/scorpion/infr
 | `scripts.arena.winner_gold_reward` | `500` | Gold awarded to round winner |
 | `scripts.arena.loser_gold_penalty` | `100` | Gold deducted from final loser |
 | `logging.packet_flow` | `false` | Log every packet (verbose) |
+| `persistence.mongodb.uri` | `mongodb://127.0.0.1:27017` | MongoDB connection string |
+| `persistence.mongodb.database` | `scorpion` | MongoDB database name |
+| `persistence.mongodb.mongosh_path` | `mongosh` | `mongosh` binary path (set absolute path on Windows if needed) |
 
-Accounts are hardcoded in settings - no database:
-
-```lua
-accounts = {
-  admin  = { password = "admin",  role = "admin"  },
-  player = { password = "player", role = "player" },
-}
-```
+Account data is persisted in MongoDB. `settings.accounts` are treated as seed accounts and will be created on boot if missing.
 
 ---
 
@@ -119,6 +147,7 @@ Use this as the primary navigation map when changing gameplay behavior:
 - `lua/scorpion/application/handlers/support/inventory_state.lua`: inventory, gold, equipment, and weight helpers.
 - `lua/scorpion/domain/world.lua`: domain composition root.
 - `lua/scorpion/domain/world/*.lua`: focused world concerns (`sessions`, `visibility`, `warp`, `arena_round`, `shops`, `runtime_npcs`).
+- `lua/scorpion/infrastructure/accounts_mongo.lua` + `mongosh_client.lua`: Mongo-backed account/character persistence.
 - `lua/scorpion/infrastructure/shop_db.lua` + `shop_text_db.lua`: shop DB loading and parser support.
 - `lua/scorpion/infrastructure/eif_parser.lua` + `enf_parser.lua`: item/NPC pub parsers used by inventory/shop flows.
 

@@ -105,6 +105,13 @@ local defaults = {
     start_gold = 1000,
   },
   port = 8081,
+  persistence = {
+    mongodb = {
+      mongosh_path = "mongosh",
+      uri = "mongodb://127.0.0.1:27017",
+      database = "scorpion",
+    },
+  },
 }
 
 function Settings.load()

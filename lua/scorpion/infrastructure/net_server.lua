@@ -104,6 +104,10 @@ end
 function NetServer:close_client(client, reason)
   local session = self.server.world:find_session_by_address(client.context.address)
   if session then
+    if self.server.save_session then
+      self.server:save_session(session, "disconnect")
+    end
+
     local runner = self.server.world.arena_script_runner
     if runner and runner.clear_session_proxy then
       local ok_clear, clear_err = pcall(runner.clear_session_proxy, runner, session, "disconnect")

@@ -5,6 +5,8 @@ Server.__index = Server
 
 function Server.new(deps)
   return setmetatable({
+    accounts = deps.accounts,
+    logger = deps.logger,
     settings = deps.settings,
     router = deps.router,
     world = deps.world,
@@ -30,6 +32,28 @@ end
 
 function Server:registered_families()
   return self.router.handlers
+end
+
+function Server:save_session(session, source)
+  if not session then
+    return nil, "missing_session"
+  end
+
+  if not self.accounts or not self.accounts.save_session then
+    return true
+  end
+
+  local ok, err = self.accounts:save_session(session)
+  if not ok and self.logger then
+    self.logger:warn("session persistence failed", {
+      account = session.account or "unknown",
+      error = tostring(err or "unknown"),
+      session_id = session.id or 0,
+      source = source or "unknown",
+    })
+  end
+
+  return ok, err
 end
 
 return Server

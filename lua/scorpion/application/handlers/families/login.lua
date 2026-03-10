@@ -20,10 +20,18 @@ function M.handle(self, packet, context)
   })
 
   local reply = Packet.new(Family.Login, Action.Reply)
-  local account = self.accounts:find(username)
+  local account, find_err = self.accounts:find(username)
 
   if account == nil then
-    self:trace("warn", "login rejected", { username = username, reason = "unknown_user" })
+    if find_err then
+      self:trace("warn", "login rejected", {
+        username = username,
+        reason = "lookup_failed",
+        error = tostring(find_err),
+      })
+    else
+      self:trace("warn", "login rejected", { username = username, reason = "unknown_user" })
+    end
     reply:add_int2(LoginReply.UnknownUser)
     return reply
   end
