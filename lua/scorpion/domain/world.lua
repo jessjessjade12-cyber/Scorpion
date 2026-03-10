@@ -39,8 +39,28 @@ function World.new()
       client = {},
       server = {},
     },
+    spatial_config = {
+      default_bucket_size = 8,
+      sparse_bucket_size = 16,
+      dense_bucket_size = 4,
+      sparse_enter = 48,
+      sparse_exit = 72,
+      dense_enter = 220,
+      dense_exit = 180,
+    },
     session_spatial = {},
     spatial_index = {},
+    spatial_bucket_size = {},
+    spatial_map_counts = {},
+    spatial_map_bucket_counts = {},
+    spatial_metrics = {
+      map_calls = 0,
+      map_results = 0,
+      nearby_buckets = 0,
+      nearby_calls = 0,
+      nearby_results = 0,
+      rebalances = 0,
+    },
     runtime_npc_owners = {},
     runtime_npcs = {},
     shop_db = {
@@ -104,6 +124,7 @@ World.sync_session_spatial = Spatial.sync_session_spatial
 World.remove_session_spatial = Spatial.remove_session_spatial
 World.list_map_sessions = Spatial.list_map_sessions
 World.list_nearby_sessions = Spatial.list_nearby_sessions
+World.spatial_snapshot = Spatial.spatial_snapshot
 
 -- Visibility and broadcast behavior.
 World.in_range = Visibility.in_range
@@ -144,6 +165,7 @@ World.arena_eliminate = ArenaRound.arena_eliminate
 World.tick_arena = ArenaRound.tick_arena
 
 function World:snapshot()
+  local spatial = self:spatial_snapshot()
   return {
     arena_ready = self.arena_ready,
     arena_round = self.arena_round.active,
@@ -153,6 +175,10 @@ function World:snapshot()
     pub_client = count(self.pub.client or {}),
     pub_server = count(self.pub.server or {}),
     shops = self:shop_count(),
+    spatial_indexed_sessions = spatial.indexed_sessions or 0,
+    spatial_maps = spatial.maps_indexed or 0,
+    spatial_nearby_avg_results = spatial.nearby_avg_results or 0,
+    spatial_rebalances = spatial.rebalances or 0,
   }
 end
 
