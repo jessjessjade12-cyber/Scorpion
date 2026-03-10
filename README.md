@@ -1,4 +1,6 @@
-﻿# Scorpion
+# Scorpion
+
+[![Unit Tests](https://github.com/jessjessjade12-cyber/Scorpion/actions/workflows/unit-tests.yml/badge.svg?branch=master)](https://github.com/jessjessjade12-cyber/Scorpion/actions/workflows/unit-tests.yml)
 
 A dedicated **Endless Online arena server** written in Lua 5.1. Players queue, get warped into combat zones, fight, and respawn until one remains.
 
