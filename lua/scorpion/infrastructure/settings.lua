@@ -56,6 +56,28 @@ local defaults = {
     tick_sleep_ms = 20,
     websocket_port = 8079,
   },
+  npc_movement = {
+    enabled = true,
+    include_shop_npcs = false,
+    interval_seconds = 0.35,
+    pause_chance = 0.18,
+    leash_radius = 6,
+    momentum_bias = 0.8,
+    crowd_avoid_radius = 1,
+    crowd_avoid_weight = 0.25,
+    scan_distance = 14,
+    -- Spawn type -> seconds per move (0 fastest, 7 disabled).
+    speeds = {
+      [0] = 0.35,
+      [1] = 0.45,
+      [2] = 0.55,
+      [3] = 0.70,
+      [4] = 0.85,
+      [5] = 1.05,
+      [6] = 1.25,
+      [7] = 0,
+    },
+  },
   scripts = {
     arena = {
       enabled = true,

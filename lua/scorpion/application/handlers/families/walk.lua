@@ -5,7 +5,7 @@ function M.handle(self, packet, context)
   if not session then
     return nil, "walk before login"
   end
-  return self.arena:handle_walk(packet, session)
+  return self.movement:handle_walk(packet, session)
 end
 
 return M

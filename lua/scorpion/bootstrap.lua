@@ -21,6 +21,7 @@ function Bootstrap.build()
 
   world:attach_assets(assets)
   world:configure_arena(settings)
+  world:configure_npc_movement(settings)
   world:attach_arena_script_runner(ArenaScriptRunner.new({
     accounts = accounts,
     logger = logger,

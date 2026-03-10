@@ -1,4 +1,5 @@
 local ArenaRound = require("scorpion.domain.world.arena_round")
+local NpcMotion = require("scorpion.domain.world.npc_motion")
 local RuntimeNpcs = require("scorpion.domain.world.runtime_npcs")
 local Sessions = require("scorpion.domain.world.sessions")
 local Shops = require("scorpion.domain.world.shops")
@@ -38,6 +39,29 @@ function World.new()
     pub = {
       client = {},
       server = {},
+    },
+    npc_movement = {
+      crowd_avoid_radius = 1,
+      crowd_avoid_weight = 0.25,
+      enabled = true,
+      include_shop_npcs = false,
+      interval_seconds = 0.35,
+      leash_radius = 6,
+      map_state = {},
+      momentum_bias = 0.8,
+      next_tick = 0,
+      pause_chance = 0.18,
+      scan_distance = 14,
+      speeds = {
+        [0] = 0.35,
+        [1] = 0.45,
+        [2] = 0.55,
+        [3] = 0.70,
+        [4] = 0.85,
+        [5] = 1.05,
+        [6] = 1.25,
+        [7] = 0,
+      },
     },
     spatial_config = {
       default_bucket_size = 8,
@@ -144,6 +168,10 @@ World.list_map_npcs = RuntimeNpcs.list_map_npcs
 World.get_runtime_npc_for_owner = RuntimeNpcs.get_runtime_npc_for_owner
 World.upsert_runtime_npc_for_owner = RuntimeNpcs.upsert_runtime_npc_for_owner
 World.remove_runtime_npc_for_owner = RuntimeNpcs.remove_runtime_npc_for_owner
+
+-- Static NPC movement behavior.
+World.configure_npc_movement = NpcMotion.configure_npc_movement
+World.tick_npcs = NpcMotion.tick_npcs
 
 -- Map and warp behavior.
 World.has_map = Warp.has_map

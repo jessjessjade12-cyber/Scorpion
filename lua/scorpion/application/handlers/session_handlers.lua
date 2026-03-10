@@ -1,4 +1,5 @@
 local ArenaHandlers = require("scorpion.application.handlers.arena_handlers")
+local MovementHandlers = require("scorpion.application.handlers.movement_handlers")
 local CharacterList = require("scorpion.application.handlers.support.character_list")
 local GameDataBlob = require("scorpion.application.handlers.support.gamedata_blob")
 local Nearby = require("scorpion.application.handlers.support.nearby")
@@ -38,6 +39,10 @@ function SessionHandlers.new(deps)
   return setmetatable({
     accounts = deps.accounts,
     arena = ArenaHandlers.new({
+      settings = deps.settings,
+      world = deps.world,
+    }),
+    movement = MovementHandlers.new({
       settings = deps.settings,
       world = deps.world,
     }),

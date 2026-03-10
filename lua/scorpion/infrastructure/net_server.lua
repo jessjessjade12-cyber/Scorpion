@@ -446,6 +446,11 @@ function NetServer:run_forever()
       end
     end
 
+    local ok_npc, npc_err = pcall(self.server.world.tick_npcs, self.server.world, arena_now)
+    if not ok_npc then
+      self:log("warn", "npc movement tick failed", { error = tostring(npc_err) })
+    end
+
     -- Build the select read list: listener sockets + all client sockets
     local read_list = { self.tcp }
     if self.ws_tcp then

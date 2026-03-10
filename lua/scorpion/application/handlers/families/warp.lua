@@ -63,10 +63,10 @@ function M.handle(self, packet, context)
     end
   end
 
-  if self.settings.arena.only and not self.arena:arena_only_map_allowed(session.map_id) then
+  if self.settings.arena.only and not self.movement:map_allowed(session.map_id) then
     return nil, "arena map only"
   end
-  return self.arena:handle_warp(packet, session)
+  return self.movement:handle_warp(packet, session)
 end
 
 return M
