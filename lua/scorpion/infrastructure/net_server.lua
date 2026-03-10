@@ -427,21 +427,29 @@ function NetServer:run_forever()
       end
     end
 
-    self:accept_new()
-
-    local now  = socket.gettime()
-    local keys = {}
-    for key in pairs(self.clients) do
-      keys[#keys + 1] = key
+    -- Build the select read list: listener sockets + all client sockets
+    local read_list = { self.tcp }
+    if self.ws_tcp then
+      read_list[#read_list + 1] = self.ws_tcp
+    end
+    local sock_to_addr = {}
+    for addr, client in pairs(self.clients) do
+      read_list[#read_list + 1] = client.sock
+      sock_to_addr[client.sock] = addr
     end
 
-    for _, key in ipairs(keys) do
-      local client = self.clients[key]
-      if client ~= nil then
-        local ok_ping, ping_err = self:tick_ping(client, now)
-        if not ok_ping then
-          self:close_client(client, ping_err or "ping failed")
-        else
+    -- Block until a socket is readable (up to one tick)
+    local readable = socket.select(read_list, nil, self.sleep_seconds)
+
+    local now = socket.gettime()
+
+    for _, sock in ipairs(readable) do
+      if sock == self.tcp or sock == self.ws_tcp then
+        self:accept_new()
+      else
+        local addr   = sock_to_addr[sock]
+        local client = addr and self.clients[addr]
+        if client then
           local ok_read, read_err = self:read_client(client)
           if not ok_read then
             self:close_client(client, read_err or "read failed")
@@ -450,9 +458,20 @@ function NetServer:run_forever()
       end
     end
 
-    self:flush_world_pending()
+    -- Ping check runs for all clients every tick regardless of select
+    local keys = {}
+    for key in pairs(self.clients) do keys[#keys + 1] = key end
+    for _, key in ipairs(keys) do
+      local client = self.clients[key]
+      if client then
+        local ok_ping, ping_err = self:tick_ping(client, now)
+        if not ok_ping then
+          self:close_client(client, ping_err or "ping failed")
+        end
+      end
+    end
 
-    socket.sleep(self.sleep_seconds)
+    self:flush_world_pending()
   end
 
   return true
