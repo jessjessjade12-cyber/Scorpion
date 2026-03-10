@@ -1,7 +1,12 @@
 local ArenaHandlers = require("scorpion.application.handlers.arena_handlers")
 local CharacterList = require("scorpion.application.handlers.support.character_list")
+local Directory = require("scorpion.application.handlers.support.directory")
 local GameDataBlob = require("scorpion.application.handlers.support.gamedata_blob")
+local Identity = require("scorpion.application.handlers.support.identity")
+local Location = require("scorpion.application.handlers.support.location")
 local Nearby = require("scorpion.application.handlers.support.nearby")
+local Pub = require("scorpion.application.handlers.support.pub")
+local RangeParser = require("scorpion.application.handlers.support.range_parser")
 local Protocol = require("scorpion.transport.protocol")
 
 local Family = Protocol.Family
@@ -26,34 +31,6 @@ local FamilyModules = {
   walk = require("scorpion.application.handlers.families.walk"),
   warp = require("scorpion.application.handlers.families.warp"),
 }
-
-local function auth_client(auth)
-  auth = auth + 1
-  local result = ((auth % 11) + 1) * 119
-  if result == 0 then
-    return 0
-  end
-  return 110905 + ((auth % 9) + 1) * ((11092004 - auth) % result) * 119 + (auth % 2004)
-end
-
-local function load_character_location(session, character)
-  session.character_id = character.id
-  session.character = character.name
-  session.map_id = character.map_id
-  session.x = character.x
-  session.y = character.y
-  session.direction = character.direction
-end
-
-local function valid_account_name(name)
-  if #name < 4 or #name > 20 then return false end
-  return name:find("[^%da-z]") == nil
-end
-
-local function valid_character_name(name)
-  if #name < 4 or #name > 12 then return false end
-  return name:find("[^a-z]") == nil
-end
 
 local SessionHandlers = {}
 SessionHandlers.__index = SessionHandlers
@@ -98,82 +75,39 @@ function SessionHandlers:max_characters()
 end
 
 function SessionHandlers:auth_client(auth)
-  return auth_client(auth)
+  return Identity.auth_client(auth)
 end
 
 function SessionHandlers:load_character_location(session, character)
-  return load_character_location(session, character)
+  return Identity.load_character_location(session, character)
 end
 
 function SessionHandlers:valid_account_name(name)
-  return valid_account_name(name)
+  return Identity.valid_account_name(name)
 end
 
 function SessionHandlers:valid_character_name(name)
-  return valid_character_name(name)
+  return Identity.valid_character_name(name)
 end
 
 function SessionHandlers:apply_arena_only_location(session)
-  local arena = self.settings.arena or {}
-  if not arena.only then
-    return
-  end
-
-  local target_map = arena.map or ((self.settings.new_character or {}).spawn_map) or session.map_id
-  if session.map_id == target_map then
-    return
-  end
-
-  local spawn = self.settings.new_character or {}
-  local x = spawn.spawn_x or session.x
-  local y = spawn.spawn_y or session.y
-
-  local first_spawn = (arena.spawns or {})[1]
-  if first_spawn and first_spawn.from then
-    x = first_spawn.from.x
-    y = first_spawn.from.y
-  end
-
-  session.map_id = target_map
-  session.x = x
-  session.y = y
-  session.direction = spawn.spawn_direction or session.direction
+  return Location.apply_arena_only_location(self.settings, session)
 end
 
 function SessionHandlers:apply_map_relog_location(session)
-  local relog = self.world:get_map_relog(session.map_id)
-  if not relog then
-    return
-  end
-
-  session.x = relog.x
-  session.y = relog.y
+  return Location.apply_map_relog_location(self.world, session)
 end
 
 function SessionHandlers:get_pub_blob(key)
-  return ((self.world.pub or {}).client or {})[key]
+  return Pub.get_blob(self.world, key)
 end
 
 function SessionHandlers:add_rid(reply, data)
-  if data == nil or #data < 7 then
-    reply:add_byte(0) reply:add_byte(0) reply:add_byte(0) reply:add_byte(0)
-    return
-  end
-  reply:add_byte(data:byte(4))
-  reply:add_byte(data:byte(5))
-  reply:add_byte(data:byte(6))
-  reply:add_byte(data:byte(7))
+  return Pub.add_rid(reply, data)
 end
 
 function SessionHandlers:add_pub_meta(reply, blob)
-  local data = blob and blob.data or nil
-  self:add_rid(reply, data)
-  if data == nil or #data < 9 then
-    reply:add_byte(0) reply:add_byte(0)
-    return
-  end
-  reply:add_byte(data:byte(8))
-  reply:add_byte(data:byte(9))
+  return Pub.add_meta(reply, blob)
 end
 
 -- Encode a CharacterMapInfo entry into reply.
@@ -198,50 +132,19 @@ function SessionHandlers:get_requested_nearby_sessions(center_session, player_id
 end
 
 function SessionHandlers:parse_player_ids(packet)
-  local player_ids = {}
-  while #packet.data >= 2 do
-    player_ids[#player_ids + 1] = packet:get_int2()
-  end
-  return player_ids
+  return RangeParser.parse_player_ids(packet)
 end
 
 function SessionHandlers:parse_range_request(packet)
-  local player_ids = {}
-
-  while #packet.data > 0 and packet.data:byte(1) ~= 255 do
-    if #packet.data < 2 then
-      break
-    end
-    player_ids[#player_ids + 1] = packet:get_int2()
-  end
-
-  return player_ids
+  return RangeParser.parse_range_request(packet)
 end
 
 function SessionHandlers:broadcast_all(packet, exclude_session)
-  for _, session in pairs(self.world.sessions) do
-    if session.connected and (exclude_session == nil or session.id ~= exclude_session.id) then
-      self.world:push_pending(session.address, packet)
-    end
-  end
+  return Directory.broadcast_all(self.world, packet, exclude_session)
 end
 
 function SessionHandlers:find_session_by_character_name(name)
-  local wanted = string.lower(name or "")
-  if wanted == "" then
-    return nil, nil
-  end
-
-  for _, session in pairs(self.world.sessions) do
-    if session.connected and (session.character_id and session.character_id > 0) then
-      local character = self.accounts:get_character(session.account, session.character_id)
-      if character and string.lower(character.name or "") == wanted then
-        return session, character
-      end
-    end
-  end
-
-  return nil, nil
+  return Directory.find_session_by_character_name(self.world, self.accounts, name)
 end
 
 function SessionHandlers:send_gamedata_blob(file_id, packet)
