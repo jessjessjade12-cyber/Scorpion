@@ -67,70 +67,88 @@ accounts = {
 
 ```mermaid
 flowchart TD
-    subgraph Boot[Bootstrap Wiring]
-      B[bootstrap.lua]
-      ST[settings.lua]
-      LG[logger.lua]
-      AC[accounts_memory.lua]
-      AL[asset_loader.lua\nmaps + pub + shop db]
-      WO[world.lua + world/*]
-      AR[arena_script_runner.lua]
-      RO[router.lua]
-      SHW[session_handlers.lua]
-      SV[application/server.lua]
-      RT[runtime.lua]
+    classDef infra    fill:#0d2137,stroke:#4a90d9,color:#cce5ff
+    classDef transport fill:#0d2b0d,stroke:#56a556,color:#ccf0cc
+    classDef app      fill:#2d0d2d,stroke:#b06db0,color:#f0ccf0
+    classDef domain   fill:#2d1a00,stroke:#cc8800,color:#ffe0b2
+    classDef script   fill:#2d1500,stroke:#ff8f00,color:#fff3e0
+    classDef client   fill:#003322,stroke:#00cc88,color:#ccffee
+    classDef entry    fill:#2d0000,stroke:#ff4444,color:#ffe0e0
+    classDef store    fill:#1a1a2d,stroke:#7070cc,color:#e0e0ff
 
-      B --> ST
-      B --> LG
-      B --> AC
-      B --> AL
-      B --> WO
-      B --> AR
-      B --> RO
-      B --> SHW
-      B --> SV
-      B --> RT
-      AL --> WO
-      AR --> WO
-      SHW --> RO
-      RO --> SV
-      SV --> RT
+    subgraph Boot["Bootstrap · bootstrap.lua"]
+        direction TB
+
+        B([bootstrap.lua]):::entry
+
+        subgraph Infra["Infrastructure Layer"]
+            ST[settings.lua]:::infra
+            LG[logger.lua]:::infra
+            AC[accounts_memory.lua]:::infra
+            AL["asset_loader.lua\nmaps · pub · shop db"]:::infra
+            RT[runtime.lua]:::infra
+        end
+
+        subgraph Trans["Transport Layer"]
+            CD0[codec.lua]:::transport
+            RO[router.lua]:::transport
+        end
+
+        subgraph Dom["Domain Layer"]
+            WO["world.lua + world/\narena_round · sessions\nvisibility · shops\nwarp · runtime_npcs"]:::domain
+        end
+
+        subgraph App["Application Layer"]
+            AR["arena_script_runner.lua\n(services/)"]:::app
+            SHW["session_handlers.lua\n+ families/* + support/*"]:::app
+            SV[server.lua]:::app
+        end
+
+        B --> ST & LG & AC & AL
+        B --> WO
+        AL -->|attach_assets| WO
+        B --> AR
+        AR -->|attach_runner| WO
+        B --> CD0 & RO
+        B --> SHW
+        SHW -->|register handlers| RO
+        RO & WO -->|inject| SV
+        CD0 & LG & SV -->|inject| RT
     end
 
-    subgraph Loop[Runtime Network Loop]
-      C1[EO TCP client :8081]
-      C2[Browser WS client :8079]
-      NS[net_server.lua\naccept/read/select loop]
-      WS[websocket.lua\nHTTP upgrade + frame decode]
-      CD[codec.lua\nEO packet decode/encode]
-      SD[server.dispatch]
-      ROD[router.dispatch]
-      SH[session_handlers methods]
-      FH[families/* + support/*]
-      AH[arena_handlers.lua]
-      WQ[world state + pending packet queue]
-      SCR[scripts/arena.lua]
+    subgraph Loop["Runtime Network Loop · net_server.lua"]
+        direction TB
 
-      C1 --> NS
-      C2 --> NS
-      NS --> CD
-      NS --> WS
-      WS --> CD
-      CD --> SD
-      SD --> ROD
-      ROD --> SH
-      SH --> FH
-      SH --> AH
-      FH --> WQ
-      AH --> WQ
-      WQ -->|flush_pending| NS
-      NS --> C1
-      NS --> C2
-      NS -->|1s tick| WQ
-      NS -->|1s tick| AR
-      AR --> SCR
-      SCR --> AR
-      AR --> WQ
+        C1([EO TCP :8081]):::client
+        C2([WS Browser :8079]):::client
+
+        NS["net_server.lua\nsocket.select loop"]:::infra
+        WSH["websocket.lua\nHTTP upgrade · frame decode"]:::transport
+        CD["codec.lua\ndecode / encode"]:::transport
+        SD[server.dispatch]:::app
+        ROD[router.dispatch]:::transport
+        SH[session_handlers]:::app
+        FH["families/* · support/*"]:::app
+        AH[arena_handlers.lua]:::app
+        WQ[(world pending queue)]:::store
+        ARR[arena_script_runner]:::app
+        SCR[scripts/arena.lua]:::script
+
+        C1 & C2 --> NS
+        NS -->|"WS client: HTTP upgrade"| WSH
+        WSH -->|EO payload| CD
+        NS -->|"TCP client: raw bytes"| CD
+        CD -->|decoded packet| SD
+        SD --> ROD --> SH
+        SH --> FH & AH
+        FH & AH -->|push pending| WQ
+        WQ -->|flush_pending| NS
+        NS -->|send response| C1 & C2
+
+        NS -->|"1s · tick_arena()"| WQ
+        NS -->|"1s · runner.tick()"| ARR
+        ARR <-->|hooks: start/eliminate/end| SCR
+        ARR -->|push pending| WQ
     end
 ```
 
