@@ -1,12 +1,8 @@
 local ArenaHandlers = require("scorpion.application.handlers.arena_handlers")
 local CharacterList = require("scorpion.application.handlers.support.character_list")
-local Directory = require("scorpion.application.handlers.support.directory")
 local GameDataBlob = require("scorpion.application.handlers.support.gamedata_blob")
-local Identity = require("scorpion.application.handlers.support.identity")
-local Location = require("scorpion.application.handlers.support.location")
 local Nearby = require("scorpion.application.handlers.support.nearby")
-local Pub = require("scorpion.application.handlers.support.pub")
-local RangeParser = require("scorpion.application.handlers.support.range_parser")
+local SessionSupport = require("scorpion.application.handlers.support.session_support")
 local Protocol = require("scorpion.transport.protocol")
 
 local Family = Protocol.Family
@@ -74,40 +70,41 @@ function SessionHandlers:max_characters()
   return ((self.settings.account or {}).max_characters or 3)
 end
 
+-- Shared helper surface used by family handler modules.
 function SessionHandlers:auth_client(auth)
-  return Identity.auth_client(auth)
+  return SessionSupport.auth_client(auth)
 end
 
 function SessionHandlers:load_character_location(session, character)
-  return Identity.load_character_location(session, character)
+  return SessionSupport.load_character_location(session, character)
 end
 
 function SessionHandlers:valid_account_name(name)
-  return Identity.valid_account_name(name)
+  return SessionSupport.valid_account_name(name)
 end
 
 function SessionHandlers:valid_character_name(name)
-  return Identity.valid_character_name(name)
+  return SessionSupport.valid_character_name(name)
 end
 
 function SessionHandlers:apply_arena_only_location(session)
-  return Location.apply_arena_only_location(self.settings, session)
+  return SessionSupport.apply_arena_only_location(self.settings, session)
 end
 
 function SessionHandlers:apply_map_relog_location(session)
-  return Location.apply_map_relog_location(self.world, session)
+  return SessionSupport.apply_map_relog_location(self.world, session)
 end
 
 function SessionHandlers:get_pub_blob(key)
-  return Pub.get_blob(self.world, key)
+  return SessionSupport.get_pub_blob(self.world, key)
 end
 
 function SessionHandlers:add_rid(reply, data)
-  return Pub.add_rid(reply, data)
+  return SessionSupport.add_rid(reply, data)
 end
 
 function SessionHandlers:add_pub_meta(reply, blob)
-  return Pub.add_meta(reply, blob)
+  return SessionSupport.add_pub_meta(reply, blob)
 end
 
 -- Encode a CharacterMapInfo entry into reply.
@@ -132,19 +129,19 @@ function SessionHandlers:get_requested_nearby_sessions(center_session, player_id
 end
 
 function SessionHandlers:parse_player_ids(packet)
-  return RangeParser.parse_player_ids(packet)
+  return SessionSupport.parse_player_ids(packet)
 end
 
 function SessionHandlers:parse_range_request(packet)
-  return RangeParser.parse_range_request(packet)
+  return SessionSupport.parse_range_request(packet)
 end
 
 function SessionHandlers:broadcast_all(packet, exclude_session)
-  return Directory.broadcast_all(self.world, packet, exclude_session)
+  return SessionSupport.broadcast_all(self.world, packet, exclude_session)
 end
 
 function SessionHandlers:find_session_by_character_name(name)
-  return Directory.find_session_by_character_name(self.world, self.accounts, name)
+  return SessionSupport.find_session_by_character_name(self.world, self.accounts, name)
 end
 
 function SessionHandlers:send_gamedata_blob(file_id, packet)
@@ -161,6 +158,7 @@ function SessionHandlers:build_characters_packet(packet, username)
   return CharacterList.append(packet, characters)
 end
 
+-- Register protocol families to stable source-style handler names.
 function SessionHandlers:register(router)
   local map = {
     { family = Family.Raw,        name = "HandleRaw"        },

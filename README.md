@@ -83,3 +83,25 @@ flowchart TD
 ```
 
 Logs → `logs/scorpion.log`
+
+---
+
+## Contributor Layout
+
+Use this as the primary navigation map when changing gameplay behavior:
+
+- `lua/scorpion/bootstrap.lua`: wires all dependencies.
+- `lua/scorpion/application/handlers/session_handlers.lua`: packet-family entrypoints and shared helper surface for family handlers.
+- `lua/scorpion/application/handlers/families/*.lua`: per-packet-family behavior (`account`, `login`, `gamedata`, `warp`, etc.).
+- `lua/scorpion/application/handlers/families/gamedata/*.lua`: action-specific GameData handlers (`request`, `agree`, `message`).
+- `lua/scorpion/application/handlers/arena_handlers.lua`: arena-specific walk/attack/warp orchestration.
+- `lua/scorpion/application/handlers/support/session_support.lua`: shared session helper logic reused by multiple families.
+- `lua/scorpion/application/handlers/support/arena_support.lua`: arena movement/collision and packet helper logic.
+- `lua/scorpion/application/handlers/support/nearby.lua`: nearby/player-map serialization and nearby queries.
+- `lua/scorpion/domain/world.lua`: domain composition root (delegates to focused world modules).
+- `lua/scorpion/domain/world/*.lua`: focused world concerns (`sessions`, `visibility`, `warp`, `arena_round`).
+
+Rule of thumb:
+- Add packet behavior in `families/`.
+- Add reusable helper logic in `support/`.
+- Keep `session_handlers.lua` and `arena_handlers.lua` as orchestration layers, not dump files.
