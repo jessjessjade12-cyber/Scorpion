@@ -222,7 +222,7 @@ local function local_view_session(session, is_self)
   })
 end
 
-function M.get_nearby_sessions(world, accounts, center_session)
+function M.get_nearby_sessions(world, accounts, center_session, resolve_character)
   local result = {}
   local seen = {}
   local candidates = world.list_nearby_sessions
@@ -243,7 +243,13 @@ function M.get_nearby_sessions(world, accounts, center_session)
       and (is_self or session.invisible ~= true)
       and (is_self or world:in_client_range(center_session, session))
     then
-      local character = accounts:get_character(session.account, session.character_id)
+      local character = nil
+      if resolve_character then
+        character = resolve_character(session)
+      elseif accounts and accounts.get_character then
+        character = accounts:get_character(session.account, session.character_id)
+      end
+
       if character then
         result[#result + 1] = {
           session = local_view_session(session, is_self),
@@ -268,7 +274,7 @@ function M.get_nearby_items(world, center_session)
   return collect_map_items(world, center_session, nil)
 end
 
-function M.get_requested_nearby_sessions(world, accounts, center_session, player_ids)
+function M.get_requested_nearby_sessions(world, accounts, center_session, player_ids, resolve_character)
   if #player_ids == 0 then
     return {}
   end
@@ -292,7 +298,13 @@ function M.get_requested_nearby_sessions(world, accounts, center_session, player
         and (is_self or session.invisible ~= true)
       then
         if is_self or world:in_client_range(center_session, session) then
-          local character = accounts:get_character(session.account, session.character_id)
+          local character = nil
+          if resolve_character then
+            character = resolve_character(session)
+          elseif accounts and accounts.get_character then
+            character = accounts:get_character(session.account, session.character_id)
+          end
+
           if character then
             requested[#requested + 1] = {
               session = local_view_session(session, is_self),

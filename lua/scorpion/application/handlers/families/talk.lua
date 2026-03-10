@@ -15,7 +15,7 @@ function M.handle(self, packet, context)
     return true
   end
 
-  local sender = self.accounts:get_character(session.account, session.character_id)
+  local sender = self:resolve_session_character(session)
   if not sender then
     return true
   end

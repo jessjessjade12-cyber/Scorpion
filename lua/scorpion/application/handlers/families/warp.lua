@@ -45,7 +45,7 @@ function M.handle(self, packet, context)
         self.world:sync_session_spatial(session)
       end
 
-      local self_character = self.accounts:get_character(session.account, session.character_id or 0)
+      local self_character = self:resolve_session_character(session)
       if session.script_npc_proxy_enabled == true and runner and runner.sync_npc_proxy then
         runner:sync_npc_proxy(session, old_position)
       elseif self_character then

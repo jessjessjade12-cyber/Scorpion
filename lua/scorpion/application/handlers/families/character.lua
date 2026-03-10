@@ -1,5 +1,6 @@
 local Packet = require("scorpion.transport.packet")
 local Protocol = require("scorpion.transport.protocol")
+local SessionSupport = require("scorpion.application.handlers.support.session_support")
 local util = require("scorpion.util")
 
 local Family = Protocol.Family
@@ -107,6 +108,7 @@ function M.handle(self, packet, context)
     if session.character_id == character_id then
       session.character_id = 0
       session.character = nil
+      SessionSupport.clear_character_profile(session)
       session.map_id = 0
       session.x = 0
       session.y = 0

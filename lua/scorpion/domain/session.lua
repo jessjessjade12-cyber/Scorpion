@@ -8,6 +8,7 @@ function Session.new(id, address)
     arena_kills = 0,
     character = nil,
     character_id = 0,
+    character_profile = nil,
     direction = 0,
     id = id,
     address = address,

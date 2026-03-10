@@ -131,6 +131,66 @@ local function local_visible_session(session)
   })
 end
 
+local function copy_character_profile(character)
+  if type(character) ~= "table" then
+    return nil
+  end
+
+  return {
+    id = character.id,
+    name = character.name,
+    level = character.level,
+    sex = character.sex,
+    hair_style = character.hair_style,
+    hair_color = character.hair_color,
+    race = character.race,
+    admin = character.admin,
+  }
+end
+
+local function cached_character_profile(session)
+  local profile = session and session.character_profile or nil
+  if type(profile) ~= "table" then
+    return nil
+  end
+
+  local session_character_id = tonumber(session.character_id) or 0
+  local profile_character_id = tonumber(profile.id) or 0
+  if session_character_id <= 0 or profile_character_id ~= session_character_id then
+    return nil
+  end
+
+  return profile
+end
+
+local function resolve_session_character(runner, session)
+  local cached = cached_character_profile(session)
+  if cached then
+    return cached
+  end
+
+  if not runner or not runner.accounts or not session then
+    return nil
+  end
+
+  local character_id = tonumber(session.character_id) or 0
+  if character_id <= 0 then
+    return nil
+  end
+
+  local character = runner.accounts:get_character(session.account, character_id)
+  if not character then
+    return nil
+  end
+
+  local profile = copy_character_profile(character)
+  session.character_profile = profile
+  if profile and profile.name then
+    session.character = profile.name
+  end
+  return profile or character
+end
+
 local function push_packet_near_origin(world, origin, packet, include_session, exclude_session_or_id)
   if not world or not origin or not packet then
     return
@@ -604,7 +664,7 @@ function ArenaScriptRunner:refresh_character(session, reason, force_full_refresh
     return false
   end
 
-  local character = self.accounts:get_character(session.account, character_id)
+  local character = resolve_session_character(self, session)
   if not character then
     return false
   end

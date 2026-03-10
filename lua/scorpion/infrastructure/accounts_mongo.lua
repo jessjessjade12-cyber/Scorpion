@@ -14,6 +14,23 @@ local js_quote = Codec.js_quote
 local lua_to_js = Codec.lua_to_js
 local normalize_character = Codec.normalize_character
 
+local function character_cache_key(account, character_id)
+  local key_account = lower(account)
+  local key_id = to_int(character_id, 0) or 0
+  if key_account == "" or key_id <= 0 then
+    return nil
+  end
+  return ("%s:%d"):format(key_account, key_id)
+end
+
+local function copy_character_list(list)
+  local out = {}
+  for _, row in ipairs(list or {}) do
+    out[#out + 1] = copy_character(row)
+  end
+  return out
+end
+
 function AccountsMongo:_run(body)
   local result, err = self.client:run(body)
   if err then
@@ -47,8 +64,81 @@ return { ok: true };
   return true
 end
 
+function AccountsMongo:_cached_character(account, character_id)
+  local key = character_cache_key(account, character_id)
+  if not key then
+    return nil
+  end
+
+  local cached = self.character_cache[key]
+  if not cached then
+    return nil
+  end
+
+  return copy_character(cached)
+end
+
+function AccountsMongo:_store_character(account, character)
+  if type(character) ~= "table" then
+    return nil
+  end
+
+  local key = character_cache_key(account, character.id)
+  if not key then
+    return nil
+  end
+
+  local cached = copy_character(character)
+  self.character_cache[key] = cached
+  return copy_character(cached)
+end
+
+function AccountsMongo:_evict_character(account, character_id)
+  local key = character_cache_key(account, character_id)
+  if key then
+    self.character_cache[key] = nil
+  end
+end
+
+function AccountsMongo:_cached_character_list(account)
+  local key = lower(account)
+  if key == "" then
+    return nil
+  end
+
+  local cached = self.character_list_cache[key]
+  if not cached then
+    return nil
+  end
+
+  return copy_character_list(cached)
+end
+
+function AccountsMongo:_store_character_list(account, list)
+  local key = lower(account)
+  if key == "" then
+    return
+  end
+
+  local cached_list = copy_character_list(list)
+  self.character_list_cache[key] = cached_list
+
+  for _, character in ipairs(cached_list) do
+    self:_store_character(key, character)
+  end
+end
+
+function AccountsMongo:_invalidate_character_list(account)
+  local key = lower(account)
+  if key ~= "" then
+    self.character_list_cache[key] = nil
+  end
+end
+
 function AccountsMongo.new(seed, settings)
   local out = setmetatable({
+    character_cache = {},
+    character_list_cache = {},
     client = MongoshClient.new(mongo_config(settings)),
     max_characters = (((settings or {}).account or {}).max_characters or 3),
     spawn = resolve_spawn(settings),
@@ -191,6 +281,11 @@ function AccountsMongo:list_characters(username)
     return {}
   end
 
+  local cached = self:_cached_character_list(account)
+  if cached then
+    return cached
+  end
+
   local result = self:_run(string.format([[
 const account = %s;
 return db.characters.find(
@@ -211,7 +306,8 @@ return db.characters.find(
     end
   end
 
-  return out
+  self:_store_character_list(account, out)
+  return copy_character_list(out)
 end
 
 function AccountsMongo:get_character(username, character_id)
@@ -219,6 +315,11 @@ function AccountsMongo:get_character(username, character_id)
   local id = to_int(character_id, 0)
   if account == "" or id <= 0 then
     return nil
+  end
+
+  local cached = self:_cached_character(account, id)
+  if cached then
+    return cached
   end
 
   local result = self:_run(string.format([[
@@ -235,7 +336,7 @@ return db.characters.findOne(
     return nil
   end
 
-  return copy_character(normalized)
+  return self:_store_character(account, normalized) or copy_character(normalized)
 end
 
 function AccountsMongo:create_character(username, spec)
@@ -333,7 +434,9 @@ return { ok: true, character: character };
     return nil, "create_failed"
   end
 
-  return copy_character(normalized)
+  local cached = self:_store_character(account, normalized) or copy_character(normalized)
+  self:_invalidate_character_list(account)
+  return cached
 end
 
 function AccountsMongo:update_character_state(username, character_id, state)
@@ -417,7 +520,9 @@ return {
     return nil, "not_found"
   end
 
-  return copy_character(normalized)
+  local cached = self:_store_character(account, normalized) or copy_character(normalized)
+  self:_invalidate_character_list(account)
+  return cached
 end
 
 function AccountsMongo:save_session(session)
@@ -476,6 +581,8 @@ return { ok: true };
     return nil, err
   end
 
+  self:_evict_character(account, id)
+  self:_invalidate_character_list(account)
   return true
 end
 

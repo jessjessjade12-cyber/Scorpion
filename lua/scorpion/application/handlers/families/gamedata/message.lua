@@ -11,7 +11,12 @@ function M.handle(self, packet, session)
   packet:discard(3)
   local character_id = packet:get_int4()
   if character_id > 0 then
-    local requested = self.accounts:get_character(session.account, character_id)
+    local requested = nil
+    if character_id == (session.character_id or 0) then
+      requested = self:resolve_session_character(session)
+    else
+      requested = self.accounts:get_character(session.account, character_id)
+    end
     if requested then
       self:load_character_location(session, requested)
     end
@@ -22,7 +27,7 @@ function M.handle(self, packet, session)
   InventoryState.ensure(self, session)
 
   if session.character_id and session.character_id > 0 then
-    local character = self.accounts:get_character(session.account, session.character_id)
+    local character = self:resolve_session_character(session)
     if character then
       local appear = Packet.new(Family.Players, Action.Agree)
       self:add_nearby_info(appear, { { session = session, character = character } })

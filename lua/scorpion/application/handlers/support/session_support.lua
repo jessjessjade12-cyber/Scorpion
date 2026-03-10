@@ -12,6 +12,56 @@ local function copy_table(value)
   return out
 end
 
+local function copy_character_profile(character)
+  if type(character) ~= "table" then
+    return nil
+  end
+
+  return {
+    id = character.id,
+    name = character.name,
+    level = character.level,
+    sex = character.sex,
+    hair_style = character.hair_style,
+    hair_color = character.hair_color,
+    race = character.race,
+    admin = character.admin,
+  }
+end
+
+function M.cache_character_profile(session, character)
+  if not session then
+    return nil
+  end
+
+  local profile = copy_character_profile(character)
+  session.character_profile = profile
+  return profile
+end
+
+function M.clear_character_profile(session)
+  if not session then
+    return
+  end
+
+  session.character_profile = nil
+end
+
+function M.cached_character_profile(session)
+  local profile = session and session.character_profile or nil
+  if type(profile) ~= "table" then
+    return nil
+  end
+
+  local session_character_id = tonumber(session.character_id) or 0
+  local profile_character_id = tonumber(profile.id) or 0
+  if session_character_id <= 0 or profile_character_id ~= session_character_id then
+    return nil
+  end
+
+  return profile
+end
+
 function M.auth_client(auth)
   auth = auth + 1
   local result = ((auth % 11) + 1) * 119
@@ -24,6 +74,7 @@ end
 function M.load_character_location(session, character)
   session.character_id = character.id
   session.character = character.name
+  M.cache_character_profile(session, character)
   session.map_id = character.map_id
   session.x = character.x
   session.y = character.y
@@ -175,7 +226,7 @@ function M.broadcast_all(world, packet, exclude_session)
   end
 end
 
-function M.find_session_by_character_name(world, accounts, name)
+function M.find_session_by_character_name(world, accounts, name, resolve_character)
   local wanted = string.lower(name or "")
   if wanted == "" then
     return nil, nil
@@ -183,8 +234,16 @@ function M.find_session_by_character_name(world, accounts, name)
 
   for _, session in pairs(world.sessions) do
     if session.connected and (session.character_id and session.character_id > 0) then
-      local character = accounts:get_character(session.account, session.character_id)
-      if character and string.lower(character.name or "") == wanted then
+      local character = nil
+      if resolve_character then
+        character = resolve_character(session)
+      elseif accounts and accounts.get_character then
+        character = accounts:get_character(session.account, session.character_id)
+      end
+
+      local session_name = string.lower(session.character or "")
+      local character_name = string.lower((character and character.name) or session_name)
+      if character_name == wanted then
         return session, character
       end
     end

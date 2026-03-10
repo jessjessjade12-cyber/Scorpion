@@ -120,6 +120,29 @@ function SessionHandlers:apply_map_relog_location(session)
   return out
 end
 
+function SessionHandlers:resolve_session_character(session)
+  local cached = SessionSupport.cached_character_profile(session)
+  if cached then
+    return cached
+  end
+
+  if not session then
+    return nil
+  end
+
+  local character_id = tonumber(session.character_id) or 0
+  if character_id <= 0 then
+    return nil
+  end
+
+  local character = self.accounts:get_character(session.account, character_id)
+  if character then
+    return SessionSupport.cache_character_profile(session, character) or character
+  end
+
+  return nil
+end
+
 function SessionHandlers:get_pub_blob(key)
   return SessionSupport.get_pub_blob(self.world, key)
 end
@@ -141,7 +164,14 @@ end
 -- Return {session, character} pairs for all connected characters within range
 -- on the same map, always including self.
 function SessionHandlers:get_nearby_sessions(center_session)
-  return Nearby.get_nearby_sessions(self.world, self.accounts, center_session)
+  return Nearby.get_nearby_sessions(
+    self.world,
+    self.accounts,
+    center_session,
+    function(session)
+      return self:resolve_session_character(session)
+    end
+  )
 end
 
 function SessionHandlers:get_nearby_npcs(center_session)
@@ -166,7 +196,15 @@ function SessionHandlers:add_nearby_info(reply, nearby, npcs, items)
 end
 
 function SessionHandlers:get_requested_nearby_sessions(center_session, player_ids)
-  return Nearby.get_requested_nearby_sessions(self.world, self.accounts, center_session, player_ids)
+  return Nearby.get_requested_nearby_sessions(
+    self.world,
+    self.accounts,
+    center_session,
+    player_ids,
+    function(session)
+      return self:resolve_session_character(session)
+    end
+  )
 end
 
 function SessionHandlers:get_requested_nearby_npcs(center_session, npc_indexes)
@@ -194,7 +232,14 @@ function SessionHandlers:broadcast_all(packet, exclude_session)
 end
 
 function SessionHandlers:find_session_by_character_name(name)
-  return SessionSupport.find_session_by_character_name(self.world, self.accounts, name)
+  return SessionSupport.find_session_by_character_name(
+    self.world,
+    self.accounts,
+    name,
+    function(session)
+      return self:resolve_session_character(session)
+    end
+  )
 end
 
 function SessionHandlers:send_gamedata_blob(file_id, packet)

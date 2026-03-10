@@ -161,7 +161,7 @@ function M.handle(self, packet, context)
       return true
     end
 
-    local target_character = self.accounts:get_character(target_session.account, target_session.character_id)
+    local target_character = self:resolve_session_character(target_session)
     if not target_character then
       return true
     end

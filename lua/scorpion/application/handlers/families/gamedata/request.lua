@@ -10,7 +10,12 @@ local M = {}
 function M.handle(self, packet, session)
   local requested_id = packet:get_int4()
   if requested_id > 0 then
-    local requested = self.accounts:get_character(session.account, requested_id)
+    local requested = nil
+    if requested_id == (session.character_id or 0) then
+      requested = self:resolve_session_character(session)
+    else
+      requested = self.accounts:get_character(session.account, requested_id)
+    end
     if requested then
       self:load_character_location(session, requested)
       self:apply_arena_only_location(session)
@@ -24,7 +29,7 @@ function M.handle(self, packet, session)
     return nil, ("request for invalid map #%d"):format(session.map_id)
   end
 
-  local character = self.accounts:get_character(session.account, session.character_id or 0)
+  local character = self:resolve_session_character(session)
   local character_id = (character and character.id) or session.id
 
   local reply = Packet.new(Family.GameData, Action.Reply)
