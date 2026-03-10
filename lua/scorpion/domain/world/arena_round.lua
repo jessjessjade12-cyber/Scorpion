@@ -1,9 +1,3 @@
-local Packet = require("scorpion.transport.packet")
-local Protocol = require("scorpion.transport.protocol")
-
-local Family = Protocol.Family
-local Action = Protocol.Action
-
 local M = {}
 
 local function contains(list, value)
@@ -15,49 +9,39 @@ local function contains(list, value)
   return false
 end
 
-local function session_name(session)
-  if not session then
-    return "unknown"
-  end
-  return session.character or session.account or ("player" .. tostring(session.id or 0))
-end
-
 function M.send_arena_full(self)
-  local packet = Packet.new(Family.Arena, Action.Drop)
-  packet:add_string("N")
+  local transport = self.transport
+  if not transport or not transport.arena_full_packet then
+    return
+  end
+  local packet = transport.arena_full_packet()
   self:broadcast_map(self.arena.map, packet)
 end
 
 function M.send_arena_launch(self, players_count)
-  local packet = Packet.new(Family.Arena, Action.Use)
-  packet:add_int1(players_count)
+  local transport = self.transport
+  if not transport or not transport.arena_launch_packet then
+    return
+  end
+  local packet = transport.arena_launch_packet(players_count)
   self:broadcast_map(self.arena.map, packet)
 end
 
 function M.send_arena_spec(self, killer_session, victim_session, direction)
-  local packet = Packet.new(Family.Arena, Action.Spec)
-  packet:add_int2(killer_session.id)
-  packet:add_byte(255)
-  packet:add_int1(direction or killer_session.direction or 0)
-  packet:add_byte(255)
-  packet:add_int4(killer_session.arena_kills or 0)
-  packet:add_byte(255)
-  packet:add_string(session_name(killer_session))
-  packet:add_byte(255)
-  packet:add_string(session_name(victim_session))
+  local transport = self.transport
+  if not transport or not transport.arena_spec_packet then
+    return
+  end
+  local packet = transport.arena_spec_packet(killer_session, victim_session, direction)
   self:broadcast_map(self.arena.map, packet)
 end
 
 function M.send_arena_accept(self, winner_session, victim_session)
-  local winner_name = session_name(winner_session)
-  local packet = Packet.new(Family.Arena, Action.Accept)
-  packet:add_string(winner_name)
-  packet:add_byte(255)
-  packet:add_int4((winner_session and winner_session.arena_kills) or 0)
-  packet:add_byte(255)
-  packet:add_string(winner_name)
-  packet:add_byte(255)
-  packet:add_string(session_name(victim_session))
+  local transport = self.transport
+  if not transport or not transport.arena_accept_packet then
+    return
+  end
+  local packet = transport.arena_accept_packet(winner_session, victim_session)
   self:broadcast_map(self.arena.map, packet)
 end
 

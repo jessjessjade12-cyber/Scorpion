@@ -1,9 +1,3 @@
-local Packet = require("scorpion.transport.packet")
-local Protocol = require("scorpion.transport.protocol")
-
-local Family = Protocol.Family
-local Action = Protocol.Action
-
 local M = {}
 
 local function get_distance(a, b)
@@ -67,11 +61,11 @@ function M.broadcast_remove_from(self, origin, player_id, warp_effect)
     return
   end
 
-  local remove = Packet.new(Family.Avatar, Action.Remove)
-  remove:add_int2(player_id)
-  if warp_effect ~= nil then
-    remove:add_int1(warp_effect)
+  local transport = self.transport
+  if not transport or not transport.avatar_remove_packet then
+    return
   end
+  local remove = transport.avatar_remove_packet(player_id, warp_effect)
 
   local candidates = self.list_nearby_sessions
     and self:list_nearby_sessions(origin, 15)

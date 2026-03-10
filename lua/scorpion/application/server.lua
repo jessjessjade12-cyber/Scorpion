@@ -7,6 +7,7 @@ function Server.new(deps)
   return setmetatable({
     accounts = deps.accounts,
     logger = deps.logger,
+    scheduler = deps.scheduler,
     settings = deps.settings,
     router = deps.router,
     world = deps.world,
@@ -32,6 +33,13 @@ end
 
 function Server:registered_families()
   return self.router.handlers
+end
+
+function Server:tick(now)
+  if not self.scheduler or not self.scheduler.tick then
+    return
+  end
+  self.scheduler:tick(now)
 end
 
 function Server:save_session(session, source)

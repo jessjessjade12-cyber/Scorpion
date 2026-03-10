@@ -19,6 +19,45 @@ local function count(map)
   return total
 end
 
+local function sorted_pairs(spawns)
+  table.sort(spawns, function(a, b)
+    if a.from.y ~= b.from.y then
+      return a.from.y < b.from.y
+    end
+    return a.from.x < b.from.x
+  end)
+  return spawns
+end
+
+local function build_arena_spawns_from_emf(map_meta, arena_map)
+  local out = {}
+  if type(map_meta) ~= "table" then
+    return out
+  end
+
+  for _, row in ipairs(map_meta.warp_rows or {}) do
+    local from_y = tonumber(row and row.y) or 0
+    for _, tile in ipairs((row and row.tiles) or {}) do
+      local warp = (tile or {}).warp or {}
+      local destination_map = tonumber(warp.destination_map) or 0
+      local destination = warp.destination_coords or {}
+      local to_x = tonumber(destination.x) or 0
+      local to_y = tonumber(destination.y) or 0
+      local from_x = tonumber(tile and tile.x) or 0
+
+      -- Arena queue mapping expects local warps on the arena map.
+      if destination_map == arena_map and from_x > 0 and from_y > 0 and to_x > 0 and to_y > 0 then
+        out[#out + 1] = {
+          from = { x = from_x, y = from_y },
+          to = { x = to_x, y = to_y },
+        }
+      end
+    end
+  end
+
+  return sorted_pairs(out)
+end
+
 function World.new()
   return setmetatable({
     arena = {},
@@ -95,6 +134,7 @@ function World.new()
     },
     next_session_id = 1,
     pending_sends = {},
+    transport = nil,
   }, World)
 end
 
@@ -114,11 +154,34 @@ function World:configure_arena(settings)
     y = spawn.spawn_y or 0,
   }
   local arena_map = (self.arena and self.arena.map) or self.arena_spawn.map or 5
+
+  local spawn_source = tostring(self.arena.spawn_source or "auto"):lower()
+  local map_meta = self:get_map_meta(arena_map)
+  local emf_spawns = build_arena_spawns_from_emf(map_meta, arena_map)
+  local configured_spawns = self.arena.spawns or {}
+
+  if spawn_source == "emf" then
+    self.arena.spawns = emf_spawns
+  elseif spawn_source == "settings" then
+    self.arena.spawns = configured_spawns
+  else
+    -- auto: prefer EMF queue warps, fallback to configured static spawn pairs.
+    if #emf_spawns > 0 then
+      self.arena.spawns = emf_spawns
+    else
+      self.arena.spawns = configured_spawns
+    end
+  end
+
   self.arena_ready = self:has_map(arena_map)
 end
 
 function World:attach_arena_script_runner(runner)
   self.arena_script_runner = runner
+end
+
+function World:attach_transport(adapter)
+  self.transport = adapter or nil
 end
 
 function World:run_arena_script_hook(hook_name, context)

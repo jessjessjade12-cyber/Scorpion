@@ -78,6 +78,7 @@ All settings are in [lua/scorpion/infrastructure/settings.lua](lua/scorpion/infr
 | `port` | `8081` | TCP port |
 | `net.websocket_port` | `8079` | WebSocket port |
 | `arena.map` | `46` | Arena map ID |
+| `arena.spawn_source` | `"settings"` | Arena queue spawn source: `settings`, `emf`, or `auto` |
 | `arena.block` | `4` | Max players per round |
 | `scripts.arena.loser_duration_seconds` | `60` | Loser disguise duration |
 | `scripts.arena.winner_gold_reward` | `500` | Gold awarded to round winner |
@@ -88,6 +89,12 @@ All settings are in [lua/scorpion/infrastructure/settings.lua](lua/scorpion/infr
 | `persistence.mongodb.mongosh_path` | `mongosh` | `mongosh` binary path (set absolute path on Windows if needed) |
 
 Account data is persisted in MongoDB. `settings.accounts` are treated as seed accounts and will be created on boot if missing.
+
+Arena spawn notes:
+- Default is `settings` (safe for maps that have unrelated local warps).
+- `arena.spawn_source = "auto"`: uses EMF local warp rows on the arena map when present, otherwise uses `arena.spawns`.
+- `arena.spawn_source = "emf"`: map-driven only.
+- `arena.spawn_source = "settings"`: static `arena.spawns` only.
 
 ---
 
@@ -112,6 +119,7 @@ flowchart LR
     TRANS["Transport\ncodec decode/encode\nwebsocket framing"]:::transport
 
     DISP["Handlers\nrouter → session handlers\nfamilies + arena handlers"]:::app
+    SCHED["World Scheduler\narena/script/npc ticks"]:::app
 
     subgraph State["Domain State"]
         WORLD["World\nsessions · arena rounds\nvisibility · shops · NPCs"]:::domain
@@ -123,9 +131,10 @@ flowchart LR
     TRANS -->|decoded packet| DISP
     DISP -->|update state\nqueue response| WORLD
     WORLD <-->|hooks| SCR
+    NET -->|tick call| SCHED
+    SCHED -->|state ticks| WORLD
     WORLD -->|pending packets| NET
     NET -->|"send response"| Clients
-    NET -->|"1s tick"| WORLD
 ```
 
 Logs -> `logs/scorpion.log`
@@ -145,8 +154,10 @@ Use this as the primary navigation map when changing gameplay behavior:
 - `lua/scorpion/application/handlers/support/arena_support.lua`: arena movement/collision and packet helper logic.
 - `lua/scorpion/application/handlers/support/nearby.lua`: nearby/player-map serialization and nearby queries (players + static/runtime NPCs).
 - `lua/scorpion/application/handlers/support/inventory_state.lua`: inventory, gold, equipment, and weight helpers.
+- `lua/scorpion/application/services/world_scheduler.lua`: world tick orchestration (arena/script/NPC), called by server runtime.
 - `lua/scorpion/domain/world.lua`: domain composition root.
 - `lua/scorpion/domain/world/*.lua`: focused world concerns (`sessions`, `visibility`, `warp`, `arena_round`, `shops`, `runtime_npcs`).
+- `lua/scorpion/transport/world_packets.lua`: transport packet adapter injected into world (keeps packet/protocol details out of domain modules).
 - `lua/scorpion/infrastructure/accounts_mongo.lua` + `mongosh_client.lua`: Mongo-backed account/character persistence.
 - `lua/scorpion/infrastructure/shop_db.lua` + `shop_text_db.lua`: shop DB loading and parser support.
 - `lua/scorpion/infrastructure/eif_parser.lua` + `enf_parser.lua`: item/NPC pub parsers used by inventory/shop flows.

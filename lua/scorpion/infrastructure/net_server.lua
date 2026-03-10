@@ -28,7 +28,6 @@ function NetServer.new(deps)
     running            = false,
     server             = deps.server,
     sleep_seconds      = (settings.net.tick_sleep_ms or 20) / 1000,
-    next_arena_tick    = 0,
     tcp                = nil,
     ws_tcp             = nil,
     ws_port            = (settings.net or {}).websocket_port,
@@ -430,29 +429,10 @@ end
 
 function NetServer:run_forever()
   while self.running do
-    local arena_now = socket.gettime()
-    if arena_now >= (self.next_arena_tick or 0) then
-      self.next_arena_tick = arena_now + 1
-      local winner = self.server.world:tick_arena()
-      if winner then
-        self:log("info", "arena round over", {
-          winner = winner.account or "unknown",
-          kills  = winner.arena_kills or 0,
-        })
-      end
-
-      local runner = self.server.world.arena_script_runner
-      if runner and runner.tick then
-        local ok_tick, tick_err = pcall(runner.tick, runner)
-        if not ok_tick then
-          self:log("warn", "arena script tick failed", { error = tostring(tick_err) })
-        end
-      end
-    end
-
-    local ok_npc, npc_err = pcall(self.server.world.tick_npcs, self.server.world, arena_now)
-    if not ok_npc then
-      self:log("warn", "npc movement tick failed", { error = tostring(npc_err) })
+    local tick_now = socket.gettime()
+    local ok_tick, tick_err = pcall(self.server.tick, self.server, tick_now)
+    if not ok_tick then
+      self:log("warn", "world scheduler tick failed", { error = tostring(tick_err) })
     end
 
     -- Build the select read list: listener sockets + all client sockets

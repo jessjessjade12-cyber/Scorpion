@@ -24,6 +24,9 @@ local defaults = {
     map = 46,
     only = true,
     rate = 5,
+    -- "auto" prefers EMF local warp rows for arena queue spawns, then falls back to settings.
+    -- Use "settings" to force static pairs below, or "emf" to force map-driven spawns only.
+    spawn_source = "settings",
     spawns = {
       { from = { x = 11, y = 44 }, to = { x = 12, y = 24 } },
       { from = { x = 13, y = 44 }, to = { x = 12, y = 17 } },

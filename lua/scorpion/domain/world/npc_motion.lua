@@ -1,10 +1,4 @@
-local Packet = require("scorpion.transport.packet")
-local Protocol = require("scorpion.transport.protocol")
-
 local M = {}
-
-local Family = Protocol.Family
-local Action = Protocol.Action
 
 local SHOP_NPC_TYPE = 6
 local DEFAULT_INTERVAL_SECONDS = 0.35
@@ -357,22 +351,15 @@ local function choose_direction(self, cfg, meta, lookup, state, occupied, player
   return best_direction
 end
 
-local function build_move_packet(npc)
-  local packet = Packet.new(Family.Npc, Action.Player)
-  packet:add_int1(clamp(npc and npc.index, 0, 252, 0))
-  packet:add_int1(clamp(npc and npc.x, 0, 252, 0))
-  packet:add_int1(clamp(npc and npc.y, 0, 252, 0))
-  packet:add_int1(clamp(npc and npc.direction, 0, 3, 0))
-  packet:add_byte(255)
-  packet:add_byte(255)
-  packet:add_byte(255)
-  return packet
-end
-
 local function notify_move(self, map_id, old_x, old_y, npc)
+  local transport = self.transport
+  if not transport or not transport.npc_move_packet then
+    return
+  end
+
   local old_point = npc_point(map_id, old_x, old_y)
   local new_point = npc_point(map_id, clamp(npc.x, 0, 252, 0), clamp(npc.y, 0, 252, 0))
-  local packet = build_move_packet(npc)
+  local packet = transport.npc_move_packet(npc)
   local candidates = {}
 
   local scan_distance = map_scan_distance(self)

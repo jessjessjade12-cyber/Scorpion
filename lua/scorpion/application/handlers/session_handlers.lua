@@ -211,134 +211,48 @@ function SessionHandlers:build_characters_packet(packet, username)
   return CharacterList.append(packet, characters)
 end
 
--- Register protocol families to stable source-style handler names.
-function SessionHandlers:register(router)
-  local map = {
-    { family = Family.Raw,        name = "HandleRaw"        },
-    { family = Family.Connection, name = "HandleConnection"  },
-    { family = Family.Account,    name = "HandleAccount"     },
-    { family = Family.Character,  name = "HandleCharacter"   },
-    { family = Family.Login,      name = "HandleLogin"       },
-    { family = Family.GameData,   name = "HandleGameData"    },
-    { family = Family.Walk,       name = "HandleWalk"        },
-    { family = Family.PlayerRange,name = "HandlePlayerRange" },
-    { family = Family.NpcRange,   name = "HandleNpcRange"    },
-    { family = Family.Range,      name = "HandleRange"       },
-    { family = Family.Face,       name = "HandleFace"        },
-    { family = Family.Talk,       name = "HandleTalk"        },
-    { family = Family.Sit,        name = "HandleUnimplemented" },
-    { family = Family.Warp,       name = "HandleWarp"          },
-    { family = Family.Message,    name = "HandleMessage"        },
-    { family = Family.Paperdoll,  name = "HandlePaperdoll" },
-    { family = Family.Players,    name = "HandleUnimplemented" },
-    { family = Family.Door,       name = "HandleUnimplemented" },
-    { family = Family.Emote,      name = "HandleUnimplemented" },
-    { family = Family.Shop,       name = "HandleShop"          },
-    { family = Family.Chair,      name = "HandleUnimplemented" },
-    { family = Family.Item,       name = "HandleItem"          },
-    { family = Family.Locker,     name = "HandleUnimplemented" },
-    { family = Family.Attack,     name = "HandleAttack"        },
-    { family = Family.Refresh,    name = "HandleRefresh"       },
-    { family = Family.Skill,      name = "HandleUnimplemented" },
-    { family = Family.Barber,     name = "HandleUnimplemented" },
-    { family = Family.Bank,       name = "HandleUnimplemented" },
-  }
+local FamilyRoutes = {
+  [Family.Raw] = "raw",
+  [Family.Connection] = "connection",
+  [Family.Account] = "account",
+  [Family.Character] = "character",
+  [Family.Login] = "login",
+  [Family.GameData] = "gamedata",
+  [Family.Walk] = "walk",
+  [Family.PlayerRange] = "player_range",
+  [Family.NpcRange] = "npc_range",
+  [Family.Range] = "range",
+  [Family.Face] = "face",
+  [Family.Talk] = "talk",
+  [Family.Sit] = "unimplemented",
+  [Family.Warp] = "warp",
+  [Family.Message] = "message",
+  [Family.Paperdoll] = "paperdoll",
+  [Family.Players] = "unimplemented",
+  [Family.Door] = "unimplemented",
+  [Family.Emote] = "unimplemented",
+  [Family.Shop] = "shop",
+  [Family.Chair] = "unimplemented",
+  [Family.Item] = "item",
+  [Family.Locker] = "unimplemented",
+  [Family.Attack] = "attack",
+  [Family.Refresh] = "refresh",
+  [Family.Skill] = "unimplemented",
+  [Family.Barber] = "unimplemented",
+  [Family.Bank] = "unimplemented",
+}
 
+function SessionHandlers:register(router)
   router:set_default(function(packet, context)
-    return self:DefaultHandler(packet, context)
+    return FamilyModules.default.handle(self, packet, context)
   end)
 
-  for _, item in ipairs(map) do
-    local family = item.family
-    local method = item.name
+  for family, module_name in pairs(FamilyRoutes) do
+    local module = FamilyModules[module_name] or FamilyModules.unimplemented
     router:register(family, function(packet, context)
-      return self[method](self, packet, context)
+      return module.handle(self, packet, context)
     end)
   end
-end
-
-function SessionHandlers:DefaultHandler(packet, context)
-  return FamilyModules.default.handle(self, packet, context)
-end
-
-function SessionHandlers:HandleRaw(packet, context)
-  return FamilyModules.raw.handle(self, packet, context)
-end
-
-function SessionHandlers:HandleConnection(packet, context)
-  return FamilyModules.connection.handle(self, packet, context)
-end
-
-function SessionHandlers:HandleAccount(packet, context)
-  return FamilyModules.account.handle(self, packet, context)
-end
-
-function SessionHandlers:HandleCharacter(packet, context)
-  return FamilyModules.character.handle(self, packet, context)
-end
-
-function SessionHandlers:HandleLogin(packet, context)
-  return FamilyModules.login.handle(self, packet, context)
-end
-
-function SessionHandlers:HandleGameData(packet, context)
-  return FamilyModules.gamedata.handle(self, packet, context)
-end
-
-function SessionHandlers:HandleWalk(packet, context)
-  return FamilyModules.walk.handle(self, packet, context)
-end
-
-function SessionHandlers:HandlePlayerRange(packet, context)
-  return FamilyModules.player_range.handle(self, packet, context)
-end
-
-function SessionHandlers:HandleNpcRange(packet, context)
-  return FamilyModules.npc_range.handle(self, packet, context)
-end
-
-function SessionHandlers:HandleRange(packet, context)
-  return FamilyModules.range.handle(self, packet, context)
-end
-
-function SessionHandlers:HandleFace(packet, context)
-  return FamilyModules.face.handle(self, packet, context)
-end
-
-function SessionHandlers:HandleTalk(packet, context)
-  return FamilyModules.talk.handle(self, packet, context)
-end
-
-function SessionHandlers:HandleShop(packet, context)
-  return FamilyModules.shop.handle(self, packet, context)
-end
-
-function SessionHandlers:HandlePaperdoll(packet, context)
-  return FamilyModules.paperdoll.handle(self, packet, context)
-end
-
-function SessionHandlers:HandleItem(packet, context)
-  return FamilyModules.item.handle(self, packet, context)
-end
-
-function SessionHandlers:HandleUnimplemented(packet, context)
-  return FamilyModules.unimplemented.handle(self, packet, context)
-end
-
-function SessionHandlers:HandleWarp(packet, context)
-  return FamilyModules.warp.handle(self, packet, context)
-end
-
-function SessionHandlers:HandleMessage(packet, context)
-  return FamilyModules.message.handle(self, packet, context)
-end
-
-function SessionHandlers:HandleAttack(packet, context)
-  return FamilyModules.attack.handle(self, packet, context)
-end
-
-function SessionHandlers:HandleRefresh(packet, context)
-  return FamilyModules.refresh.handle(self, packet, context)
 end
 
 return SessionHandlers

@@ -1,9 +1,3 @@
-local Packet = require("scorpion.transport.packet")
-local Protocol = require("scorpion.transport.protocol")
-
-local Family = Protocol.Family
-local Action = Protocol.Action
-
 local M = {}
 
 function M.has_map(self, map_id)
@@ -66,10 +60,11 @@ function M.request_local_warp(self, session, map_id, x, y, direction)
     warp_type = 1, -- Local
   }
 
-  local packet = Packet.new(Family.Warp, Action.Request)
-  packet:add_int1(1) -- WarpType.Local
-  packet:add_int2(target_map)
-  packet:add_int2(session_id)
+  local transport = self.transport
+  if not transport or not transport.warp_request_packet then
+    return false
+  end
+  local packet = transport.warp_request_packet(target_map, session_id)
   self:push_pending(session.address, packet)
   return true
 end

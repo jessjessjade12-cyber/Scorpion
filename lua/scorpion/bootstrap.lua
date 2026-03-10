@@ -1,6 +1,7 @@
 local AccountsMongo = require("scorpion.infrastructure.accounts_mongo")
 local AssetLoader = require("scorpion.infrastructure.asset_loader")
 local ArenaScriptRunner = require("scorpion.application.services.arena_script_runner")
+local WorldScheduler = require("scorpion.application.services.world_scheduler")
 local Codec = require("scorpion.transport.codec")
 local Logger = require("scorpion.infrastructure.logger")
 local Server = require("scorpion.application.server")
@@ -8,6 +9,7 @@ local SessionHandlers = require("scorpion.application.handlers.session_handlers"
 local Settings = require("scorpion.infrastructure.settings")
 local Runtime = require("scorpion.infrastructure.runtime")
 local Router = require("scorpion.transport.router")
+local WorldPackets = require("scorpion.transport.world_packets")
 local World = require("scorpion.domain.world")
 
 local Bootstrap = {}
@@ -22,17 +24,23 @@ function Bootstrap.build()
   world:attach_assets(assets)
   world:configure_arena(settings)
   world:configure_npc_movement(settings)
+  world:attach_transport(WorldPackets)
   world:attach_arena_script_runner(ArenaScriptRunner.new({
     accounts = accounts,
     logger = logger,
     settings = settings,
     world = world,
   }))
+  local scheduler = WorldScheduler.new({
+    logger = logger,
+    world = world,
+  })
 
   local router = Router.new()
   local server = Server.new({
     accounts = accounts,
     logger = logger,
+    scheduler = scheduler,
     settings = settings,
     router = router,
     world = world,
